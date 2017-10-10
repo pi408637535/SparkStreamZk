@@ -1,0 +1,14 @@
+额外的一张表：task表，用来存储J2EE平台插入其中的任务的信息
+task表
+
+第四个表：top10_category_session表，存储top10每个品类的点击top10的session
+session_detail，用来存储随机抽取出来的session的明细数据、top10品类的session的明细数据
+top10_category表，存储按点击、下单和支付排序出来的top10品类数据
+session_random_extract表，存储我们的按时间比例随机抽取功能抽取出来的1000个session
+session_aggr_stat表，存储第一个功能，session聚合统计的结果
+
+
+Spark2.0中
+RDD -> DateSet有问题
+
+
