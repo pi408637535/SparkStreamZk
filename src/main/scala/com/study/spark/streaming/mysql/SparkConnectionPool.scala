@@ -5,7 +5,7 @@ import java.util
 /**
   * Created by piguanghua on 2017/9/7.
   */
-object ConnectionPool{
+object SparkConnectionPool{
 	private val max = 20                         //连接池连接总数
 	private val connectionNum = 10    //每次产生连接数
 	private var conNum = 0                  //当前连接池已产生的连接数

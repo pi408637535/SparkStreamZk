@@ -1,4 +1,4 @@
-package com.study.spark.pool.kafka
+package com.study.spark.pool
 
 import java.io.UnsupportedEncodingException
 

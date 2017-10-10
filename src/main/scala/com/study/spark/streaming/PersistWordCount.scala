@@ -1,6 +1,6 @@
 package com.study.spark.streaming
 
-import com.study.spark.streaming.mysql.ConnectionPool
+import com.study.spark.streaming.mysql.SparkConnectionPool
 import org.apache.spark.SparkConf
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 
