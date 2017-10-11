@@ -2,7 +2,7 @@ package com.study.spark.pool
 
 import com.study.spark.config.ConfigurationManager
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig
-import redis.clients.jedis.JedisPool
+import redis.clients.jedis.{Jedis, JedisPool}
 
 /**
   * Created by piguanghua on 2017/10/10.
@@ -29,4 +29,12 @@ object RedisStockPushClient {
 		}
 	}
 	sys.addShutdownHook(hook.run)
+
+	def getResource(): Jedis ={
+		pool.getResource
+	}
+
+	def releaseResource(jedis: Jedis) ={
+		pool.returnResource(jedis)
+	}
 }
