@@ -6,5 +6,5 @@ package com.study.spark.utils
 object StringUtils {
   def fulfuill(str: String): String = if (str.length == 2) str else "0" + str
 
-//  def formatDouble(data: Double): String = String.format("%.2f", data)
+  def formatDouble(data: Double): String = f"$data%.2f"
 }

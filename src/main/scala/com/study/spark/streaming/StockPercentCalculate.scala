@@ -5,14 +5,15 @@ import java.util
 
 import com.alibaba.fastjson.{JSONArray, JSONObject}
 import com.stockemotion.common.utils.{JsonUtils, ObjectUtils}
+import com.study.spark.config.{PushRedisConstants, StockRedisConstants}
 import com.study.spark.pool.{KafkaPoolUtils, RedisStockInfoClient, RedisStockPushClient}
 import com.study.spark.streaming.mysql.{SparkConnectionPool, SparkPushConnectionPool}
-import com.study.spark.utils.StringUtils
+import com.study.spark.utils.{PushUtils, StringUtils, WodeInfoUtils}
 import kafka.serializer.StringDecoder
-import org.apache.kafka.clients.producer.{KafkaProducer, ProducerConfig, ProducerRecord}
 import org.apache.spark.SparkConf
 import org.apache.spark.streaming.kafka.KafkaUtils
 import org.apache.spark.streaming.{Seconds, StreamingContext}
+
 import scala.collection.JavaConversions._
 
 /**
@@ -30,8 +31,9 @@ object StockPercentCalculate {
 		val stockInfoMap = scala.collection.mutable.Map[String, String]()
 
 		//缓存stock数据
+		//需要checkpoint
 		val redisStockInfo = RedisStockInfoClient.pool.getResource
-		val stockCodeString = redisStockInfo.lrange("CN:STK:CODELIST:APP:TEST", 0 ,-1);
+		val stockCodeString = redisStockInfo.lrange(StockRedisConstants.STOCK_ALL_CODE, 0 ,-1);
 		for(jsonString <-  stockCodeString){
 			import com.stockemotion.common.utils.JsonUtils
 			val jsonObject = JsonUtils.TO_JSONObject(jsonString)
@@ -40,17 +42,17 @@ object StockPercentCalculate {
 			stockInfoMap += (stockCode->stockName)
 		}
 
-	/*	//大盘
-		val stockPanCode = redisStockInfo.hgetAll("CN:STK:INDEXLIST:APP")
+		//大盘
+		val stockPanCode = redisStockInfo.hgetAll(StockRedisConstants.STOCK_ALL_PAN_CODE)
 		import com.alibaba.fastjson.JSONObject
 		import com.stockemotion.common.utils.JsonUtils
 
-		for (jsonString <- stockPanCode) {
-			val jsonObject = JsonUtils.TO_JSONObject(jsonString)
+		for (entry <- stockPanCode.entrySet()) {
+			val jsonObject = JsonUtils.TO_JSONObject(entry.getValue())
 			val stockCode = ObjectUtils.toString(jsonObject.get("stock_code"))
 			val stockName = ObjectUtils.toString(jsonObject.get("stock_name"))
 			stockInfoMap.put(stockCode, stockName)
-		}*/
+		}
 
 
 		val Array(brokers, topics) = paras
@@ -64,7 +66,6 @@ object StockPercentCalculate {
 
 			val data = JsonUtils.TO_JSONArray(line._2)
 
-
 			Some(data)
 		})
 
@@ -74,7 +75,7 @@ object StockPercentCalculate {
 
 			jsonArray.foreachPartition(iterator=>{
 
-			val jsonArray = new JSONArray()
+			//val jsonArray = new JSONArray()
 
 				iterator.foreach(iteratorElement=>{
 					for(i <- 0 to iteratorElement.size()-1 ){
@@ -84,7 +85,6 @@ object StockPercentCalculate {
 						val userPercent = jsonObject.get("userPercentSetting") .toString().toDouble
 						val state = jsonObject.get("state").toString.toByte
 
-						println("data：" +  "stockPercent:" + stockPercent + "---" + "userPercent:" + userPercent)
 
 						if(state == 0){  //down
 							if(stockPercent <= userPercent){
@@ -94,23 +94,13 @@ object StockPercentCalculate {
 								jsonResult.put("stockPercent", stockPercent)
 								jsonResult.put("userPercentSetting", userPercent)
 								jsonResult.put("state", 0)
-								jsonArray.add(jsonResult)
+							//	jsonArray.add(jsonResult)
 
-								val conn = SparkConnectionPool.getJdbcConn
-								val sql = "insert into stock_state(stock_name,stockPercent,userPercentSetting,state,time) "+ "values('" + jsonObject.get("stockCode") +"'" + "," + stockPercent + ","+ userPercent + ","+  0 +","+   "'" + new Timestamp(new Date(System.currentTimeMillis()).getTime) +"'" + ")"
-								val stmt = conn.createStatement()
-								//stmt.executeUpdate(sql)
 
-								SparkConnectionPool.releaseConn(conn)
 							}
 						}else{
 							if(stockPercent >= userPercent){
-								val jsonResult = new JSONObject()
-								jsonResult.put("stockCode", jsonObject.get("stockCode"))
-								jsonResult.put("userId", jsonObject.get("userId"))
-								jsonResult.put("stockPercent", stockPercent)
-								jsonResult.put("userPercentSetting", userPercent)
-								jsonResult.put("state", 1)
+
 								// jsonArray.add(jsonResult)
 
 								val stockCode = jsonObject.get("stockCode").toString
@@ -125,31 +115,32 @@ object StockPercentCalculate {
 								import org.apache.commons.collections.CollectionUtils
 
 								val redisStockPushClient = RedisStockPushClient.pool.getResource
-								redisStockPushClient.srem("STOCK:PUSH:ELF:PERCENTAGE:UP:USER:SET:"+ jsonObject.get("stockCode").toString, jsonObject.get("userId").toString)
-								redisStockPushClient.del("STOCK:SPECIAL:USER:ELF:PERCENTAGE:UP:" + jsonObject.get("userId").toString + ":" + jsonObject.get("stockCode").toString)
+								redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_PERCENTAGE_UP_USER_SET + stockCode, userId)
+								redisStockPushClient.del(PushRedisConstants.STOCK_PUSH_USER_PERCENTAGE_UP + userId + ":" + stockCode)
 
-								if (CollectionUtils.isEmpty(redisStockPushClient.smembers("STOCK:PUSH:ELF:PERCENTAGE:UP:USER:SET:" + jsonObject.get("stockCode").toString))) {
-									redisStockPushClient.del("STOCK:PUSH:ELF:PERCENTAGE:UP:USER:SET:" + jsonObject.get("stockCode").toString)
-									redisStockPushClient.srem("STOCK:PUSH:ELF:PERCENTAGE:DOWN:STOCK:SET", jsonObject.get("stockCode").toString)
+								if (CollectionUtils.isEmpty(redisStockPushClient.smembers(PushRedisConstants.STOCK_PUSH_ELF_PERCENTAGE_UP_USER_SET + stockCode))) {
+									redisStockPushClient.del(PushRedisConstants.STOCK_PUSH_ELF_PERCENTAGE_UP_USER_SET + stockCode)
+									redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_PERCENTAGE_DOWN_STOCK_SET, stockCode)
 								}
 
 
-							//	val content = StockPercentCalculate.getPercentUpContent(stockName.get, stockCode, stockPercent, userPercent)
-							//	val deviceType = ObjectUtils.toInteger(redisStockPushClient.get("STOCK:PUSH:USER:DEVICETYPE:" + userId)).byteValue
-
-							//	val message = String.format("上涨%1$s%%, 达到您设置的%2$s%%", stockPercent, userPercent)
-
-								//PushUtils.sendElfPushMessage(stockCodeUsual, stockName, content, jedisPushDAO.getJedisReadTemplate.get(STOCK_PUSH_USER_CLIENTID + userId), message, deviceType)
+								val content = StockPercentCalculate.getPercentUpContent(stockName.get, stockCode, stockPercent, userPercent)
+								val deviceType = ObjectUtils.toInteger(redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_DEVICETYPE + userId)).byteValue
 
 
-								val connSpark = SparkConnectionPool.getJdbcConn
-								val sqlSpark = "insert into stock_state(stock_name,stockPercent,userPercentSetting,state,time) "+ "values('" + jsonObject.get("stockCode") +"'" + "," + stockPercent + ","+ userPercent + ","+  1 +","+   "'" + new Timestamp(new Date(System.currentTimeMillis()).getTime) +"'" + ")"
-								val stmtSpark = connSpark.createStatement()
-								stmtSpark.executeUpdate(sqlSpark)
-								SparkConnectionPool.releaseConn(connSpark)
+								val message = f"上涨$stockPercent 到达你设置的$userPercent%.2f "
+
+
+								PushUtils.sendElfPushMessage(stockCodeUsual, stockCodeUsual, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), message, deviceType)
+
+								val jsonData = new JSONObject()
+								jsonData.put("stockCode", stockCodeUsual)
+								jsonData.put("stockName", stockName)
+								jsonData.put("content", content)
+								WodeInfoUtils.message(userId, "涨幅推送", content, jsonData)
 
 								val connPush= SparkPushConnectionPool.getJdbcConn
-								val sqlPush = "insert into push_log(stock_code,user_id,inc_percent,percent_now,sys_create_time) "+ "values('"  + jsonObject.get("stockCode") +"'" + "," + 11 + "," + stockPercent + ","+ userPercent + ","+    "'" + new Timestamp(new Date(System.currentTimeMillis()).getTime) +"'" + ")"
+								val sqlPush = "insert into push_log(stock_code,user_id,inc_percent,percent_now,sys_create_time) "+ "values('"  + jsonObject.get("stockCode") +"'" + "," + userId + "," + stockPercent + ","+ userPercent + ","+    "'" + new Timestamp(new Date(System.currentTimeMillis()).getTime) +"'" + ")"
 								val stmtPush = connPush.createStatement()
 								stmtPush.executeUpdate(sqlPush)
 								SparkPushConnectionPool.releaseConn(connPush)
@@ -160,9 +151,9 @@ object StockPercentCalculate {
 							}
 						}}
 
-					val sender = KafkaPoolUtils.getKafkaSender()
+				/*	val sender = KafkaPoolUtils.getKafkaSender()
 					sender.send(jsonArray.toString, KafkaPoolUtils.getStringEncoder())
-					KafkaPoolUtils.returnSender(sender)
+					KafkaPoolUtils.returnSender(sender)*/
 
 				})
 			})
@@ -179,5 +170,5 @@ object StockPercentCalculate {
 
 	import com.stockemotion.common.utils.DateUtils
 
-//	private def getPercentUpContent(stockName: String, stockCode: String, stockPercent: Double, stockPercentSetting: Double) = "小沃盯盘提醒您：您的自选股 " + stockName + "(" + stockCode + ")" + DateUtils.getCurrentFormatTime("yyyy-MM-dd HH:mm:ss") + "涨到" + StringUtils.formatDouble(stockPercent) + " %, 超过您设置的 " + stockPercentSetting + "%，更多信息请点击查看详情"
+	private def getPercentUpContent(stockName: String, stockCode: String, stockPercent: Double, stockPercentSetting: Double) = "小沃盯盘提醒您：您的自选股 " + stockName + "(" + stockCode + ")" + DateUtils.getCurrentFormatTime("yyyy-MM-dd HH:mm:ss") + "涨到" + StringUtils.formatDouble(stockPercent) + " %, 超过您设置的 " + stockPercentSetting + "%，更多信息请点击查看详情"
 }

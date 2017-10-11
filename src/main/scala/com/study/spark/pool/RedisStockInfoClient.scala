@@ -1,5 +1,6 @@
 package com.study.spark.pool
 
+import com.study.spark.config.ConfigurationManager
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig
 import redis.clients.jedis.JedisPool
 
@@ -7,17 +8,20 @@ import redis.clients.jedis.JedisPool
   * Created by piguanghua on 2017/10/10.
   */
 object RedisStockInfoClient {
-	val host = "192.168.1.236"
-	val port = 47614
-	val password = "Hezhiyu2Cuiping"
-	val timeOut=30000
+	val host = ConfigurationManager.STOCK_INFO_HOST
+	val port = ConfigurationManager.STOCK_INFO_PORT
+	val password = ConfigurationManager.STOCK_INFO_PASSWORD
+	val timeOut=ConfigurationManager.REDIS_TIMEOUT
+	val db = ConfigurationManager.STOCK_INFO_DATABASE
+
 	//定义pool
 	val genericObjectPoolConfig  = new GenericObjectPoolConfig()
-	genericObjectPoolConfig.setMaxTotal(2000)
-	genericObjectPoolConfig.setMaxIdle(1000)
-	genericObjectPoolConfig.setTimeBetweenEvictionRunsMillis(1000)
-	genericObjectPoolConfig.setMinEvictableIdleTimeMillis(1000)
-	lazy val pool =new JedisPool(genericObjectPoolConfig,host,port,timeOut, password)
+	genericObjectPoolConfig.setMaxTotal(ConfigurationManager.REDIS_MAX_TOTAL)
+	genericObjectPoolConfig.setMaxIdle(ConfigurationManager.REDIS_MAX_IDLE)
+	genericObjectPoolConfig.setTimeBetweenEvictionRunsMillis(ConfigurationManager.REDIS_timeBetweenEvictionRunsMillis)
+	genericObjectPoolConfig.setMinEvictableIdleTimeMillis(ConfigurationManager.REDIS_minEvictableIdleTimeMillis)
+
+	lazy val pool =new JedisPool(genericObjectPoolConfig, host, port, timeOut, password, db)
 	//关闭连接池
 	lazy val hook =new Thread{
 		override def run={

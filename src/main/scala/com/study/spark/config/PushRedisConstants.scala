@@ -1,0 +1,66 @@
+package com.study.spark.config
+
+/**
+  * Created by piguanghua on 2017/10/10.
+  */
+object PushRedisConstants {
+	//盯盘精灵 set Collection
+	val STOCK_PUSH_ELF_WD_STOCK_SET = "STOCK:PUSH:ELF_WD:STOCK:SET"
+
+	//盯盘精灵 unusual signal  保存被监测的股票
+	val STOCK_PUSH_ELF_INNER_US_STOCK_SET = "STOCK:PUSH:ELF:INNER:STOCK:SET"
+	val STOCK_PUSH_ELF_US_STOCK_SET = "STOCK:PUSH:ELF:US:STOCK:SET"
+
+	//盯盘精灵 INC_DROP_STOP  保存被监测的股票
+	val STOCK_PUSH_ELF_INC_DROP_STOP_STOCK_SET = "STOCK:PUSH:ELF:INC:DROP:STOP:STOCK:SET"
+
+	//盯盘精灵 Price Down A股
+	val STOCK_PUSH_ELF_PRICE_DOWN_STOCK_SET = "STOCK:PUSH:ELF:PRICE:DOWN:STOCK:SET"
+
+	//盯盘精灵 Price up A股
+	val STOCK_PUSH_ELF_PRICE_UP_STOCK_SET = "STOCK:PUSH:ELF:PRICE:UP:STOCK:SET"
+
+	//盯盘精灵 Percentage  Down A股
+	val STOCK_PUSH_ELF_PERCENTAGE_DOWN_STOCK_SET = "STOCK:PUSH:ELF:PERCENTAGE:DOWN:STOCK:SET"
+
+	//盯盘精灵 Percentage  UP A股
+	val STOCK_PUSH_ELF_PERCENTAGE_UP_STOCK_SET = "STOCK:PUSH:ELF:PERCENTAGE:UP:STOCK:SET"
+
+	//---------------------------------------上面是股票code---------------------------------------------------
+
+	//选择该股 为盯盘对象的所有USER  wd signal set Collection
+	val STOCK_PUSH_ELF_WD_USER_SET = "STOCK:PUSH:ELF:WD:USER:SET:"
+
+	//盯盘精灵 unusual signal A股 user set
+	val STOCK_PUSH_ELF_US_USER_SET = "STOCK:PUSH:ELF:US:USER:SET:"
+
+	//盯盘精灵 inc_drop_stop
+	val STOCK_PUSH_ELF_INC_DROP_STOP_USER_SET = "STOCK:PUSH:ELF:INC:DROP:STOP:USER:SET:"
+
+
+	//选择该股 为盯盘对象的所有USER price down set Collection
+	val STOCK_PUSH_ELF_PRICE_DOWN_USER_SET = "STOCK:PUSH:ELF:PRICE:DOWN:USER:SET:"
+
+	//选择该股 为盯盘对象的所有USER  price up set Collection
+	val STOCK_PUSH_ELF_PRICE_UP_USER_SET = "STOCK:PUSH:ELF:PRICE:UP:USER:SET:"
+
+	//选择该股 为盯盘对象的所有USER  price percentage set Collection
+	val STOCK_PUSH_ELF_PERCENTAGE_DOWN_USER_SET = "STOCK:PUSH:ELF:PERCENTAGE:DOWN:USER:SET:"
+
+	val STOCK_PUSH_ELF_PERCENTAGE_UP_USER_SET = "STOCK:PUSH:ELF:PERCENTAGE:UP:USER:SET:"
+
+
+	val STOCK_PUSH_USER_DEVICETYPE = "STOCK:PUSH:USER:DEVICETYPE:"
+
+	//特权用户用户的channel
+	val STOCK_PUSH_USER_CLIENTID = "STOCK:PUSH:USER:CLIENTID:"
+
+	//user 盯盘精灵设置的
+	val STOCK_PUSH_USER_PRICE_DOWN = "STOCK:SPECIAL:USER:ELF:PRICE:DOWN:"
+
+	val STOCK_PUSH_USER_PRICE_UP = "STOCK:SPECIAL:USER:ELF:PRICE:UP:"
+
+	val STOCK_PUSH_USER_PERCENTAGE_DOWN = "STOCK:SPECIAL:USER:ELF:PERCENTAGE:DOWN:"
+
+	val STOCK_PUSH_USER_PERCENTAGE_UP = "STOCK:SPECIAL:USER:ELF:PERCENTAGE:UP:"
+}

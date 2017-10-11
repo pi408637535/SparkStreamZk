@@ -3,12 +3,14 @@ package com.study.spark.streaming.mysql
 import java.sql.{Connection, DriverManager}
 import java.util
 
+import com.study.spark.config.ConfigurationManager
+
 /**
   * Created by piguanghua on 2017/10/10.
   */
 object SparkPushConnectionPool {
-	private val max = 20                         //连接池连接总数
-	private val connectionNum = 10    //每次产生连接数
+	private val max = ConfigurationManager.JDBC_MAX                         //连接池连接总数
+	private val connectionNum = ConfigurationManager.JDBC_CONNECTIONNum    //每次产生连接数
 	private var conNum = 0                  //当前连接池已产生的连接数
 	private val pool = new util.LinkedList[Connection]()    //连接池
 
@@ -20,7 +22,7 @@ object SparkPushConnectionPool {
 			Thread.sleep(2000)
 			preGetConn()
 		} else {
-			Class.forName("com.mysql.jdbc.Driver");
+			Class.forName(ConfigurationManager.DB_DRIVER);
 		}
 	}
 
@@ -31,7 +33,7 @@ object SparkPushConnectionPool {
 				//加载驱动
 				preGetConn()
 				for (i <- 1 to connectionNum) {
-					val conn = DriverManager.getConnection("jdbc:mysql://118.244.212.178:5306/push", "root", "test@wode2017social")
+					val conn = DriverManager.getConnection(ConfigurationManager.DB_URL, ConfigurationManager.JDBC_USERNAME, ConfigurationManager.JDBC_PASSWORD)
 					pool.push(conn)
 					conNum += 1
 				}
