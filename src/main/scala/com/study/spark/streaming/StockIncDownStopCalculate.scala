@@ -49,99 +49,93 @@ object StockIncDownStopCalculate {
 
 		//收集数据
 		val event=messages.flatMap(line => {
-			val look = line._1
-			val data = JsonUtils.TO_JSONArray(line._2)
+			val data = JsonUtils.TO_JSONObject(line._2)
 			Some(data)
 		})
 
 		event.foreachRDD(jsonArray =>{
 
 			jsonArray.foreachPartition(iterator=>{
-				val jsonArray = new JSONArray()
+
+				val redisStockPushClient = RedisStockPushClient.pool.getResource()
 
 				iterator.foreach(iteratorElement=>{
 
-					for(i <-0 to iteratorElement.size() - 1 ){
+					//获取redis push pool
+					//解析股票数据
+					val stockPriceClose = iteratorElement.get("stockPriceClose").toString.toDouble
+					val stockPriceHigh = iteratorElement.get("stockPriceHigh").toString.toDouble
+					val stockPriceLow = iteratorElement.get("stockPriceLow").toString.toDouble
+					val stockPriceYesterday = iteratorElement.get("stockPriceYesterday").toString.toDouble
+					val stockCode = iteratorElement.get("stockCode").toString
 
-						//获取redis push pool
-						val redisStockPushClient = RedisStockPushClient.getResource()
-
-						//解析股票数据
-						val jsonObject =JsonUtils.TO_JSONObject(( iteratorElement.get(i).toString))
-						val stockPriceClose = jsonObject.get("stockPriceClose").toString.toDouble
-						val stockPriceHigh = jsonObject.get("stockPriceHigh").toString.toDouble
-						val stockPriceLow = jsonObject.get("stockPriceLow").toString.toDouble
-						val stockPriceYesterday = jsonObject.get("stockPriceYesterday").toString.toDouble
-						val stockCode = jsonObject.get("stockCode").toString
-
-						val stockName = stockInfoMap.get(jsonObject.get("stockCode").toString).get
-						val stockCodeUsual = stockCode.substring(0, stockCode.lastIndexOf("."))
-						val stockPercent = StringUtils.formatDouble( (stockPriceClose - stockPriceYesterday) / stockPriceYesterday )
-
-						if(stockPriceClose >= stockPriceHigh ){ //涨停
-
-							val userSet = redisStockPushClient.smembers(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_USER_SET )
-
-							userSet.foreach(userId=>{
-
-								val content = getUpStopMessage(stockName, stockCodeUsual, stockPriceClose, stockPercent)
-								val pushMessage = StockIncDownStopCalculate.getUpStopMessage(stockName, stockPercent, stockPriceClose, stockPercent)
-								val deviceType = ObjectUtils.toInteger(redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_DEVICETYPE + userId)).byteValue
-								PushUtils.sendElfPushMessage(stockCodeUsual, stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), pushMessage, deviceType)
-
-								redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_USER_SET + stockCode, userId)
-
-								val wodeInfo = new JSONObject()
-								wodeInfo.put("stockCode", stockPercent)
-								wodeInfo.put("stockName", stockName)
-								wodeInfo.put("content", content)
-								WodeInfoUtils.message(userId, "涨跌停推送", content, wodeInfo)
-
-								val connPush= SparkPushConnectionPool.getJdbcConn
-								val sqlPush = "insert into push_log(stock_code,user_id,inc_drop_stop,percent_now,sys_create_time) "+ "values('"  + jsonObject.get("stockCode") +"'" + "," + userId + "," + 1  + ","+ stockPercent + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
-								val stmtPush = connPush.createStatement()
-								stmtPush.executeUpdate(sqlPush)
-								SparkPushConnectionPool.releaseConn(connPush)
-
-							})
-						}
-						if(stockPriceClose <= stockPriceLow ){
-							val userSet = redisStockPushClient.smembers(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_USER_SET )
-
-							userSet.foreach(userId=>{
-								val content = getDownStopMessage(stockName, stockCodeUsual, stockPriceClose, stockPercent)
-								val pushMessage = StockIncDownStopCalculate.getUpStopMessage(stockName, stockPercent, stockPriceClose, stockPercent)
-								val deviceType = ObjectUtils.toInteger(redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_DEVICETYPE + userId)).byteValue
-								PushUtils.sendElfPushMessage(stockCodeUsual, stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), pushMessage, deviceType)
-
-								redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_USER_SET + stockCode, userId)
-
-								val wodeInfo = new JSONObject()
-								wodeInfo.put("stockCode", stockPercent)
-								wodeInfo.put("stockName", stockName)
-								wodeInfo.put("content", content)
-								WodeInfoUtils.message(userId, "涨跌停推送", content, wodeInfo)
-
-								val connPush= SparkPushConnectionPool.getJdbcConn
-								val sqlPush = "insert into push_log(stock_code,user_id,inc_drop_stop,percent_now,sys_create_time) "+ "values('"  + jsonObject.get("stockCode") +"'" + "," + userId + "," + 0  + ","+ stockPercent + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
-								val stmtPush = connPush.createStatement()
-								stmtPush.executeUpdate(sqlPush)
-								SparkPushConnectionPool.releaseConn(connPush)
-							})
-						}
+					val stockName = stockInfoMap.get(iteratorElement.get("stockCode").toString).get
+					val stockCodeUsual = stockCode.substring(0, stockCode.lastIndexOf("."))
+					val stockPercent = StringUtils.formatDouble( (stockPriceClose - stockPriceYesterday) / stockPriceYesterday * 100 )
 
 
-						if (CollectionUtils.isEmpty( redisStockPushClient.smembers(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_USER_SET + stockCode) )) {
-							redisStockPushClient.del(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_USER_SET + stockCode)
-							redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_STOCK_SET, stockCode)
-						}
+					if(stockPriceClose >= stockPriceHigh ){ //涨停
 
+						val userSet = redisStockPushClient.smembers(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_USER_SET   + stockCode )
 
-						RedisStockPushClient.releaseResource(redisStockPushClient)
+						userSet.foreach(userId=>{
+
+							val content = getUpStopMessage(stockName, stockCodeUsual, stockPriceClose, stockPercent)
+							val pushMessage = StockIncDownStopCalculate.getUpStopMessage(stockName, stockPercent, stockPriceClose, stockPercent)
+							val deviceType = ObjectUtils.toInteger(redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_DEVICETYPE + userId)).byteValue
+							PushUtils.sendElfPushMessage(stockCodeUsual, stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), pushMessage, deviceType)
+
+							redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_USER_SET + stockCode, userId)
+
+							val wodeInfo = new JSONObject()
+							wodeInfo.put("stockCode", stockPercent)
+							wodeInfo.put("stockName", stockName)
+							wodeInfo.put("content", content)
+							WodeInfoUtils.message(userId, "涨跌停推送", content, wodeInfo)
+
+							val connPush= SparkPushConnectionPool.getJdbcConn
+							val sqlPush = "insert into push_log(stock_code,user_id,inc_drop_stop,percent_now,sys_create_time) "+ "values('"  + stockCode +"'" + "," + userId + "," + 1  + ","+ stockPercent + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
+							val stmtPush = connPush.createStatement()
+							stmtPush.executeUpdate(sqlPush)
+							SparkPushConnectionPool.releaseConn(connPush)
+
+						})
 					}
+					if(stockPriceClose <= stockPriceLow ){
+						val userSet = redisStockPushClient.smembers(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_USER_SET   + stockCode )
+
+						userSet.foreach(userId=>{
+							val content = getDownStopMessage(stockName, stockCodeUsual, stockPriceClose, stockPercent)
+							val pushMessage = StockIncDownStopCalculate.getUpStopMessage(stockName, stockPercent, stockPriceClose, stockPercent)
+							val deviceType = ObjectUtils.toInteger(redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_DEVICETYPE + userId)).byteValue
+							PushUtils.sendElfPushMessage(stockCodeUsual, stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), pushMessage, deviceType)
+
+							redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_USER_SET + stockCode, userId)
+
+							val wodeInfo = new JSONObject()
+							wodeInfo.put("stockCode", stockPercent)
+							wodeInfo.put("stockName", stockName)
+							wodeInfo.put("content", content)
+							WodeInfoUtils.message(userId, "涨跌停推送", content, wodeInfo)
+
+							val connPush= SparkPushConnectionPool.getJdbcConn
+							val sqlPush = "insert into push_log(stock_code,user_id,inc_drop_stop,percent_now,sys_create_time) "+ "values('"  + stockCode +"'" + "," + userId + "," + 0  + ","+ stockPercent + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
+							val stmtPush = connPush.createStatement()
+							stmtPush.executeUpdate(sqlPush)
+							SparkPushConnectionPool.releaseConn(connPush)
+						})
+					}
+
+
+					if (CollectionUtils.isEmpty( redisStockPushClient.smembers(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_USER_SET + stockCode) )) {
+						redisStockPushClient.del(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_USER_SET + stockCode)
+						redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_STOCK_SET, stockCode)
+					}
+
 
 				})
 
+				RedisStockPushClient.pool.returnResource(redisStockPushClient)
 
 			})
 
