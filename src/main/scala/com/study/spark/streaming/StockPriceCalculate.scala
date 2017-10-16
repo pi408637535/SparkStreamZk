@@ -109,10 +109,10 @@ object StockPriceCalculate {
 								val message = f"下跌$stockPrice 到达你设置的$userPrice%.2f "
 
 
-								PushUtils.sendElfPushMessage(stockName, stockCodeUsual, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), message, deviceType)
+								PushUtils.sendElfPushMessage(stockCodeUsual , stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), message, deviceType)
 
 								val jsonData = new JSONObject()
-								jsonData.put("stockCode", stockCodeUsual)
+								jsonData.put("content", content)
 								jsonData.put("stockName", stockName)
 								jsonData.put("content", content)
 								WodeInfoUtils.message(userId, "下跌推送", content, jsonData)
@@ -143,7 +143,7 @@ object StockPriceCalculate {
 								val message = f"上涨$stockPrice 到达你设置的$userPrice%.2f "
 
 
-								PushUtils.sendElfPushMessage(stockName, stockCodeUsual, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), message, deviceType)
+								PushUtils.sendElfPushMessage(stockCodeUsual , stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), message, deviceType)
 
 								val jsonData = new JSONObject()
 								jsonData.put("stockCode", stockCodeUsual)

@@ -111,7 +111,7 @@ object StockPercentCalculate {
 								val message = f"下跌$stockPercent 到达你设置的$userPercent%.2f "
 
 
-								PushUtils.sendElfPushMessage(stockName, stockCodeUsual, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), message, deviceType)
+								PushUtils.sendElfPushMessage(stockCodeUsual, stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), message, deviceType)
 
 								val jsonData = new JSONObject()
 								jsonData.put("stockCode", stockCodeUsual)
@@ -145,7 +145,7 @@ object StockPercentCalculate {
 								val message = f"上涨$stockPercent 到达你设置的$userPercent%.2f "
 
 
-								PushUtils.sendElfPushMessage(stockCodeUsual, stockCodeUsual, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), message, deviceType)
+								PushUtils.sendElfPushMessage(stockCodeUsual, stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), message, deviceType)
 
 								val jsonData = new JSONObject()
 								jsonData.put("stockCode", stockCodeUsual)

@@ -84,12 +84,13 @@ object StockIncDownStopCalculate {
 							val content = getUpStopMessage(stockName, stockCodeUsual, stockPriceClose, stockPercent)
 							val pushMessage = StockIncDownStopCalculate.getUpStopMessage(stockName, stockPercent, stockPriceClose, stockPercent)
 							val deviceType = ObjectUtils.toInteger(redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_DEVICETYPE + userId)).byteValue
+
 							PushUtils.sendElfPushMessage(stockCodeUsual, stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), pushMessage, deviceType)
 
 							redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_USER_SET + stockCode, userId)
 
 							val wodeInfo = new JSONObject()
-							wodeInfo.put("stockCode", stockPercent)
+							wodeInfo.put("stockCode", stockCodeUsual)
 							wodeInfo.put("stockName", stockName)
 							wodeInfo.put("content", content)
 							WodeInfoUtils.message(userId, "涨跌停推送", content, wodeInfo)
@@ -113,7 +114,7 @@ object StockIncDownStopCalculate {
 							redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_USER_SET + stockCode, userId)
 
 							val wodeInfo = new JSONObject()
-							wodeInfo.put("stockCode", stockPercent)
+							wodeInfo.put("stockCode", stockCodeUsual)
 							wodeInfo.put("stockName", stockName)
 							wodeInfo.put("content", content)
 							WodeInfoUtils.message(userId, "涨跌停推送", content, wodeInfo)
