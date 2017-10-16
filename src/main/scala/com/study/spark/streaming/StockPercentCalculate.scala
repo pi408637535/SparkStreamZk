@@ -3,7 +3,7 @@ package com.study.spark.streaming
 
 import com.study.spark.config.{PushRedisConstants, StockRedisConstants}
 import com.study.spark.pool.{RedisStockInfoClient, RedisStockPushClient}
-import com.study.spark.streaming.mysql.SparkPushConnectionPool
+import com.study.spark.streaming.mysql.{MDBManager, SparkPushConnectionPool}
 import com.study.spark.utils.{PushUtils, StringUtils, TimeUtils, WodeInfoUtils}
 import kafka.serializer.StringDecoder
 import org.apache.spark.SparkConf
@@ -11,6 +11,7 @@ import org.apache.spark.streaming.kafka.KafkaUtils
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 import com.stockemotion.common.utils.ObjectUtils
 import org.apache.commons.collections.CollectionUtils
+
 import scala.collection.JavaConversions._
 
 /**
@@ -72,7 +73,9 @@ object StockPercentCalculate {
 			jsonArray.foreachPartition(iterator=>{
 
 			//val jsonArray = new JSONArray()
-			val redisStockPushClient = RedisStockPushClient.getResource()
+			val redisStockPushClient = RedisStockPushClient.pool.getResource()
+				val connPush = MDBManager.getMDBManager.getConnection
+
 
 				iterator.foreach(iteratorElement=>{
 
@@ -116,11 +119,10 @@ object StockPercentCalculate {
 								jsonData.put("content", content)
 								WodeInfoUtils.message(userId, "跌幅推送", content, jsonData)
 
-								val connPush= SparkPushConnectionPool.getJdbcConn
+
 								val sqlPush = "insert into push_log(stock_code,user_id,drop_percent,percent_now,sys_create_time) "+ "values('"  + jsonObject.get("stockCode") +"'" + "," + userId + "," + userPercent  + ","+ stockPercent + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
 								val stmtPush = connPush.createStatement()
 								stmtPush.executeUpdate(sqlPush)
-								SparkPushConnectionPool.releaseConn(connPush)
 
 							}
 						}else{
@@ -151,11 +153,10 @@ object StockPercentCalculate {
 								jsonData.put("content", content)
 								WodeInfoUtils.message(userId, "涨幅推送", content, jsonData)
 
-								val connPush= SparkPushConnectionPool.getJdbcConn
 								val sqlPush = "insert into push_log(stock_code,user_id,inc_percent,percent_now,sys_create_time) "+ "values('"  + jsonObject.get("stockCode") +"'" + "," + userId + "," + userPercent  + ","+  stockPercent + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
 								val stmtPush = connPush.createStatement()
 								stmtPush.executeUpdate(sqlPush)
-								SparkPushConnectionPool.releaseConn(connPush)
+
 
 
 
@@ -163,8 +164,10 @@ object StockPercentCalculate {
 							}
 						}}
 
-					RedisStockPushClient.releaseResource(redisStockPushClient)
+
 				})
+				RedisStockPushClient.pool.returnResource(redisStockPushClient)
+				connPush.close()
 			})
 
 		})

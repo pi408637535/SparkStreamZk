@@ -10,7 +10,7 @@ import com.study.spark.config.ConfigurationManager
   */
 object SparkPushConnectionPool {
 	private val max = ConfigurationManager.JDBC_MAX                         //连接池连接总数
-	private val connectionNum = ConfigurationManager.JDBC_CONNECTIONNum    //每次产生连接数
+	private val connectionNum = 20    //每次产生连接数
 	private var conNum = 0                  //当前连接池已产生的连接数
 	private val pool = new util.LinkedList[Connection]()    //连接池
 

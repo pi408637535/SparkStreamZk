@@ -1,13 +1,15 @@
 package com.study.spark.streaming.mysql
 
-import java.sql.{DriverManager, Connection}
+import java.sql.{Connection, DriverManager}
 import java.util
+
+import com.study.spark.config.ConfigurationManager
 /**
   * Created by piguanghua on 2017/9/7.
   */
 object SparkConnectionPool{
-	private val max = 20                         //连接池连接总数
-	private val connectionNum = 10    //每次产生连接数
+	private val max = ConfigurationManager.JDBC_MAX                         //连接池连接总数
+	private val connectionNum = ConfigurationManager.JDBC_ConnectionNum    //每次产生连接数
 	private var conNum = 0                  //当前连接池已产生的连接数
 	private val pool = new util.LinkedList[Connection]()    //连接池
 

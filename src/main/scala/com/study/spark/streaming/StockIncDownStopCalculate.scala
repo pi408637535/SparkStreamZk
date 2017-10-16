@@ -13,7 +13,7 @@ import org.apache.spark.streaming.kafka.KafkaUtils
 
 import scala.collection.JavaConversions._
 import com.study.spark.config.PushRedisConstants
-import com.study.spark.streaming.mysql.SparkPushConnectionPool
+import com.study.spark.streaming.mysql.{MDBManager, SparkPushConnectionPool}
 import com.study.spark.utils.{PushUtils, StringUtils, TimeUtils, WodeInfoUtils}
 import org.apache.commons.collections.CollectionUtils
 /**
@@ -56,6 +56,7 @@ object StockIncDownStopCalculate {
 		event.foreachRDD(jsonArray =>{
 
 			jsonArray.foreachPartition(iterator=>{
+				val connPush = MDBManager.getMDBManager.getConnection
 
 				val redisStockPushClient = RedisStockPushClient.pool.getResource()
 
@@ -93,11 +94,10 @@ object StockIncDownStopCalculate {
 							wodeInfo.put("content", content)
 							WodeInfoUtils.message(userId, "涨跌停推送", content, wodeInfo)
 
-							val connPush= SparkPushConnectionPool.getJdbcConn
+
 							val sqlPush = "insert into push_log(stock_code,user_id,inc_drop_stop,percent_now,sys_create_time) "+ "values('"  + stockCode +"'" + "," + userId + "," + 1  + ","+ stockPercent + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
 							val stmtPush = connPush.createStatement()
-							stmtPush.executeUpdate(sqlPush)
-							SparkPushConnectionPool.releaseConn(connPush)
+							stmtPush.execute(sqlPush)
 
 						})
 					}
@@ -118,11 +118,11 @@ object StockIncDownStopCalculate {
 							wodeInfo.put("content", content)
 							WodeInfoUtils.message(userId, "涨跌停推送", content, wodeInfo)
 
-							val connPush= SparkPushConnectionPool.getJdbcConn
+
 							val sqlPush = "insert into push_log(stock_code,user_id,inc_drop_stop,percent_now,sys_create_time) "+ "values('"  + stockCode +"'" + "," + userId + "," + 0  + ","+ stockPercent + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
 							val stmtPush = connPush.createStatement()
 							stmtPush.executeUpdate(sqlPush)
-							SparkPushConnectionPool.releaseConn(connPush)
+
 						})
 					}
 
@@ -136,7 +136,7 @@ object StockIncDownStopCalculate {
 				})
 
 				RedisStockPushClient.pool.returnResource(redisStockPushClient)
-
+				connPush.close()
 			})
 
 		})

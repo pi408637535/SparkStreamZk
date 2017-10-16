@@ -3,7 +3,7 @@ package com.study.spark.streaming
 
 import com.study.spark.config.{PushRedisConstants, StockRedisConstants}
 import com.study.spark.pool.{RedisStockInfoClient, RedisStockPushClient}
-import com.study.spark.streaming.mysql.SparkPushConnectionPool
+import com.study.spark.streaming.mysql.{MDBManager, SparkPushConnectionPool}
 import com.study.spark.utils.{PushUtils, StringUtils, TimeUtils, WodeInfoUtils}
 import kafka.serializer.StringDecoder
 import org.apache.spark.SparkConf
@@ -72,7 +72,8 @@ object StockPriceCalculate {
 
 			jsonArray.foreachPartition(iterator=>{
 
-				val redisStockPushClient = RedisStockPushClient.getResource()
+				val redisStockPushClient = RedisStockPushClient.pool.getResource()
+				val connPush = MDBManager.getMDBManager.getConnection
 
 				iterator.foreach(iteratorElement=>{
 					for(i <- 0 to iteratorElement.size() - 1 ){
@@ -116,11 +117,10 @@ object StockPriceCalculate {
 								jsonData.put("content", content)
 								WodeInfoUtils.message(userId, "下跌推送", content, jsonData)
 
-								val connPush= SparkPushConnectionPool.getJdbcConn
+
 								val sqlPush = "insert into push_log(stock_code,user_id,drop_price,price_now,sys_create_time) "+ "values('"  + jsonObject.get("stockCode") +"'" + "," + userId + "," + userPrice  + ","+ stockPrice + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
 								val stmtPush = connPush.createStatement()
 								stmtPush.executeUpdate(sqlPush)
-								SparkPushConnectionPool.releaseConn(connPush)
 
 							}
 						}else{
@@ -151,15 +151,15 @@ object StockPriceCalculate {
 								jsonData.put("content", content)
 								WodeInfoUtils.message(userId, "上涨推送", content, jsonData)
 
-								val connPush= SparkPushConnectionPool.getJdbcConn
 								val sqlPush = "insert into push_log(stock_code,user_id,inc_price,price_now,sys_create_time) "+ "values('"  + jsonObject.get("stockCode") +"'" + "," + userId + "," + userPrice  + ","+ stockPrice + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
 								val stmtPush = connPush.createStatement()
 								stmtPush.executeUpdate(sqlPush)
-								SparkPushConnectionPool.releaseConn(connPush)
+
 							}
 						}}
 				})
-				RedisStockPushClient.releaseResource(redisStockPushClient)
+				RedisStockPushClient.pool.returnResource(redisStockPushClient)
+				connPush.close()
 			})
 		})
 

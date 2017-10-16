@@ -177,6 +177,12 @@
             <artifactId>gexin-rp-sdk-http</artifactId>
             <version>4.0.1.9</version>
         </dependency>
+
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>druid</artifactId>
+            <version>1.1.4</version>
+        </dependency>
     </dependencies>
 
 
@@ -316,6 +322,12 @@
                 <jdbc.username>root</jdbc.username>
                 <jdbc.password>test@wode2017social</jdbc.password>
 
+                <druid.initialSize>3000</druid.initialSize>
+                <druid.minPoolSize>1</druid.minPoolSize>
+                <druid.maxIdle>3000</druid.maxIdle>
+                <druid.maxActive>3000</druid.maxActive>
+
+
                 <redis.max.idle>3000</redis.max.idle>
                 <redis.max.total>6000</redis.max.total>
                 <redis.timeBetweenEvictionRunsMillis>3000</redis.timeBetweenEvictionRunsMillis>
@@ -358,11 +370,11 @@
                 <jdbc.url>jdbc:mysql://118.244.212.178:5306/push?useUnicode=true&amp;characterEncoding=utf-8</jdbc.url>
                 <jdbc.username>root</jdbc.username>
                 <jdbc.password>test@wode2017social</jdbc.password>
-                <jdbc.max>500</jdbc.max>
+                <jdbc.max>3000</jdbc.max>
                 <jdbc.connectionNum>100</jdbc.connectionNum>
 
-                <redis.max.idle>3000</redis.max.idle>
-                <redis.max.total>6000</redis.max.total>
+                <redis.max.idle>60</redis.max.idle>
+                <redis.max.total>60</redis.max.total>
                 <redis.timeBetweenEvictionRunsMillis>3000</redis.timeBetweenEvictionRunsMillis>
                 <redis.minEvictableIdleTimeMillis>3000</redis.minEvictableIdleTimeMillis>
                 <redis.testOnBorrow>false</redis.testOnBorrow>
@@ -392,6 +404,11 @@
                 <getxin.secret>Q3XnkDyT7cAjzN3MP9pkK9</getxin.secret>
 
                 <message_url>http://api3.stockemotion.com/cms/message/send</message_url>
+
+                <druid.initialSize>3000</druid.initialSize>
+                <druid.minPoolSize>1</druid.minPoolSize>
+                <druid.maxIdle>3000</druid.maxIdle>
+                <druid.maxActive>3000</druid.maxActive>
             </properties>
         </profile>
         <profile>

@@ -13,8 +13,14 @@ object ConfigurationManager {
 	val JDBC_USERNAME = ObjectUtils.toString(PropertiesGetter.getValue("jdbc.username"))
 	val JDBC_PASSWORD = ObjectUtils.toString(PropertiesGetter.getValue("jdbc.password"))
 
-	val JDBC_CONNECTIONNum = ObjectUtils.toInteger(PropertiesGetter.getValue("jdbc.connectionNum"))
+	val JDBC_ConnectionNum = ObjectUtils.toInteger(PropertiesGetter.getValue("jdbc.connectionNum"))
 	val JDBC_MAX = ObjectUtils.toInteger(PropertiesGetter.getValue("jdbc.max"))
+
+	val Druid_InitialSize = ObjectUtils.toInteger(PropertiesGetter.getValue("druid.initialSize"))
+	val Druid_MinPoolSize = ObjectUtils.toInteger(PropertiesGetter.getValue("druid.minPoolSize"))
+	val Druid_MaxIdle = ObjectUtils.toInteger(PropertiesGetter.getValue("druid.maxIdle"))
+	val Druid_MaxActive = ObjectUtils.toInteger(PropertiesGetter.getValue("druid.maxActive"))
+
 
 
 	// pool
