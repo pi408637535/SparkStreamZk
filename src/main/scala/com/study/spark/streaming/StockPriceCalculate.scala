@@ -112,7 +112,7 @@ object StockPriceCalculate {
 								PushUtils.sendElfPushMessage(stockCodeUsual , stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), message, deviceType)
 
 								val jsonData = new JSONObject()
-								jsonData.put("content", content)
+								jsonData.put("stockCode", stockCodeUsual)
 								jsonData.put("stockName", stockName)
 								jsonData.put("content", content)
 								WodeInfoUtils.message(userId, "下跌推送", content, jsonData)
