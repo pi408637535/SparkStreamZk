@@ -5,12 +5,16 @@ import com.study.spark.config.{ConfigurationManager, StockRedisConstants}
 import com.study.spark.pool.RedisStockInfoClient
 import kafka.serializer.StringDecoder
 import org.apache.spark.SparkConf
+import org.apache.spark.storage.StorageLevel
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.apache.spark.streaming.kafka.KafkaUtils
+
 import scala.collection.JavaConversions._
 /**
   * Created by piguanghua on 2017/10/16.
   */
+case class StockWdState(var stockCode:String, val wdSignal:Int )
+
 object StockWodeSignalCalculate {
 	def main(args: Array[String]): Unit = {
 		val sparkConf = new SparkConf().setAppName("StockWodeSignalCalculate")// .setMaster("local[2]")
@@ -29,13 +33,13 @@ object StockWodeSignalCalculate {
 		val redisStockInfo = RedisStockInfoClient.getResource()
 		val stockCodeString = redisStockInfo.lrange(StockRedisConstants.STOCK_ALL_CODE, 0 ,-1);
 
-		for(jsonString <-  stockCodeString){
+		/*for(jsonString <-  stockCodeString){
 			import com.stockemotion.common.utils.JsonUtils
 			val jsonObject = JsonUtils.TO_JSONObject(jsonString)
 			val stockCode = ObjectUtils.toString(jsonObject.get("stock_code"))
 			val stockName = ObjectUtils.toString(jsonObject.get("stock_name"))
 			stockInfoMap += (stockCode->stockName)
-		}
+		}*/
 		RedisStockInfoClient.releaseResource(redisStockInfo)
 
 		//收集数据
@@ -43,6 +47,15 @@ object StockWodeSignalCalculate {
 			val data = JsonUtils.TO_JSONObject(line._2)
 			Some(data)
 		})
+
+
+		event
+		  .map(jsonObject=> StockWdState(ObjectUtils.toString(jsonObject.get("stock_code")), ObjectUtils.toInteger( jsonObject.get("wd_Code") )))
+		  .window(Seconds(120), Seconds(60))
+
+		event.print()
+
+
 
 /*		val carSpeed=event.map(x=>(x.getString("camera_id"),x.getInt("speed")))
 		  .mapValues((x:Int)=>(x,1))

@@ -48,6 +48,9 @@ object ConfigurationManager {
 	val REDIS_PUSH_PASSWORD=ObjectUtils.toString(PropertiesGetter.getValue("redis.push.password"))
 	val REDIS_PUSH_DATABASE=ObjectUtils.toInteger(PropertiesGetter.getValue("redis.push.database"))
 
+	//kafka
+	val BOOTSTRAP_IP = ObjectUtils.toString(PropertiesGetter.getValue("bootstrap.ip"))
+
 	//个推
 	val GETXIN_APPID = ObjectUtils.toInteger(PropertiesGetter.getValue("getxin.appid"))
 	val GETXIN_APPKEY = ObjectUtils.toInteger(PropertiesGetter.getValue("getxin.appkey"))

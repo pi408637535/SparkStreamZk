@@ -351,6 +351,8 @@
                 <redis.push.password>password123</redis.push.password>
                 <redis.push.database>0</redis.push.database>
 
+                <!--kafka-->
+                <bootstrap.ip>spark1:9092,spark2:9092,spark3:9092</bootstrap.ip>
                 <!--gexin-->
                 <getxin.appid>BaN3qukBvjA6JH8hrhDGc1</getxin.appid>
                 <getxin.appkey>E64PuYkMQy6qmpLPSlWwf5</getxin.appkey>
@@ -405,6 +407,10 @@
 
                 <message_url>http://api3.stockemotion.com/cms/message/send</message_url>
 
+                <!--kafka-->
+                <bootstrap.ip>192.168.1.226:9092,192.168.1.161:9092,192.168.1.227:9092</bootstrap.ip>
+
+
                 <druid.initialSize>3000</druid.initialSize>
                 <druid.minPoolSize>1</druid.minPoolSize>
                 <druid.maxIdle>3000</druid.maxIdle>
@@ -414,7 +420,53 @@
         <profile>
             <id>final</id>
             <properties>
-                <build.profile.id>dev</build.profile.id>
+                <build.profile.id>final</build.profile.id>
+                <db.driver>com.mysql.jdbc.Driver</db.driver>
+                <jdbc.url>jdbc:mysql://192.168.1.161:7306/push?useUnicode=true&amp;characterEncoding=utf-8</jdbc.url>
+                <jdbc.username>root</jdbc.username>
+                <jdbc.password>push@wode2017share</jdbc.password>
+
+                <druid.initialSize>3000</druid.initialSize>
+                <druid.minPoolSize>1</druid.minPoolSize>
+                <druid.maxIdle>3000</druid.maxIdle>
+                <druid.maxActive>3000</druid.maxActive>
+
+
+                <redis.max.idle>3000</redis.max.idle>
+                <redis.max.total>6000</redis.max.total>
+                <redis.timeBetweenEvictionRunsMillis>3000</redis.timeBetweenEvictionRunsMillis>
+                <redis.minEvictableIdleTimeMillis>3000</redis.minEvictableIdleTimeMillis>
+                <redis.testOnBorrow>false</redis.testOnBorrow>
+                <redis.timeout>1000</redis.timeout>
+
+                <!--stock info-->
+                <stock.info.host>192.168.1.236</stock.info.host>
+                <stock.info.port>47614</stock.info.port>
+                <stock.info.password>Hezhiyu2Cuiping</stock.info.password>
+                <stock.info.database>0</stock.info.database>
+                <!--stock wd-->
+                <stock.wd.host>192.168.1.184</stock.wd.host>
+                <stock.wd.port>47614</stock.wd.port>
+                <stock.wd.password>Hezhiyu2Cuiping</stock.wd.password>
+                <stock.wd.database>0</stock.wd.database>
+                <!--stock push-->
+                <redis.push.host>118.244.212.185</redis.push.host>
+                <redis.push.port>16379</redis.push.port>
+                <redis.push.password>wode@public751</redis.push.password>
+                <redis.push.database>0</redis.push.database>
+
+                <!--kafka-->
+                <bootstrap.ip>192.168.1.226:9092,192.168.1.161:9092,192.168.1.227:9092</bootstrap.ip>
+
+                <!--gexin-->
+                <getxin.appid>9LxK9s1sCIAMUX0DDYQQhA</getxin.appid>
+                <getxin.appkey>RN0uIHBlJp5InERW6kyot6</getxin.appkey>
+                <getxin.master.secret>r3h4BZDnFF7setRA1DT0Q</getxin.master.secret>
+                <getxin.host>http://sdk.open.api.igexin.com/apiex.htm</getxin.host>
+                <getxin.secret>Q3XnkDyT7cAjzN3MP9pkK9</getxin.secret>
+
+                <message_url>http://appdev.stockemotion.com/cms/message/send</message_url>
+
             </properties>
         </profile>
     </profiles>
