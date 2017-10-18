@@ -340,7 +340,7 @@ public class PushUtils {
             messageJson.put("action", "3");
 
             // 消息信息的id
-            messageJson.put("notificationId", "1");
+            messageJson.put("notificationId", "2");
 
             if(deviceType == 0){ //android
                 List<String> stringList = new ArrayList<>();
