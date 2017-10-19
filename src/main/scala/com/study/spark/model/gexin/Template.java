@@ -94,8 +94,6 @@ public class Template
 
         APNPayload payload = new APNPayload();
         // 透传带有数据
-        payload.setContentAvailable(1);
-        payload.setAutoBadge(badge);
 
         payload.addCustomMsg("stockCode",contentObj.getString("stockCode"));
         payload.addCustomMsg("stockName",contentObj.getString("stockName"));
@@ -104,10 +102,28 @@ public class Template
 
         payload.setContentAvailable(2048);
 
-        //  payload.setCategory(contentObj.getString("stockCode") + "&" + contentObj.getString("stockName"));
 
+        /*
+        * APNPayload.DictionaryAlertMsg alertMsg = new APNPayload.DictionaryAlertMsg();
+        alertMsg.setTitle("沃德股市气象站");
 
-        SimpleAlertMsg alertMsg = getSimpleAlertMsg(contentObj.getString("message"));
+        payload.setAlertMsg(alertMsg);
+        payload.setContentAvailable(1);
+        payload.setAutoBadge(badge);
+        * */
+
+        APNPayload.DictionaryAlertMsg alertMsg = new APNPayload.DictionaryAlertMsg();
+        alertMsg.setBody(contentObj.getString("message"));
+        // alertMsg.setActionLocKey("ActionLockey");
+        // alertMsg.setLocKey("LocKey");
+        // alertMsg.addLocArg("loc-args");
+        // alertMsg.setLaunchImage("launch-image");
+        // iOS8.2以上版本支持
+        alertMsg.setTitle(contentObj.getString("title"));
+
+        //
+    //    SimpleAlertMsg alertMsg = getSimpleAlertMsg(contentObj.getString("message"));
+
         payload.setAlertMsg(alertMsg);
 
         template.setAPNInfo(payload);
