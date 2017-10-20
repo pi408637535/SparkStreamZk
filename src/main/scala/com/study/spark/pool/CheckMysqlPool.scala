@@ -13,7 +13,7 @@ object CheckMysqlPool extends App{
 
 
 	val connPush = MDBManager.getMDBManager.getConnection
-	val sqlPush = "insert into wd_signal_log(stock_code,wd_signal,sys_create_time) "+ "values('"  +   "000001.SZ"  +"'" + "," + 1  + "," +   "'" + TimeUtils.getCurrent_time() +"'" + ")"
+	val sqlPush = "insert into push_error_log(stock_code,user_id,drop_price,sys_create_time) "+ "values(    '"  +   "000001.SZ"  +"'" + "," + 1  + "," +  1  + "," + "'" + TimeUtils.getCurrent_time() +"'" + ")"
 	val stmtPush = connPush.createStatement()
 	stmtPush.executeUpdate(sqlPush)
 	connPush.close()

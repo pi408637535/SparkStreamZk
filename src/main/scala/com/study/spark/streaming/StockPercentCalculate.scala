@@ -20,7 +20,7 @@ import scala.collection.JavaConversions._
 object StockPercentCalculate {
 	def main(args: Array[String]): Unit = {
 		// Create context with 2 second batch interval
-		val sparkConf = new SparkConf().setAppName("StockPriceCalculate")//.setMaster("local[2]")
+		val sparkConf = new SparkConf().setAppName("StockPercentCalculate")//.setMaster("local[2]")
 		val ssc = new StreamingContext(sparkConf, Seconds(3))
 	//	val paras = Array("spark1:9092,spark2:9092,spark3:9092", "stockPercent")
 		val paras = Array("192.168.1.226:9092,192.168.1.161:9092,192.168.1.227:9092", "stockPercent")

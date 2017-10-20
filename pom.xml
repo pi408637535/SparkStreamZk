@@ -375,8 +375,8 @@
                 <jdbc.max>3000</jdbc.max>
                 <jdbc.connectionNum>100</jdbc.connectionNum>
 
-                <redis.max.idle>60</redis.max.idle>
-                <redis.max.total>60</redis.max.total>
+                <redis.max.idle>200</redis.max.idle>
+                <redis.max.total>200</redis.max.total>
                 <redis.timeBetweenEvictionRunsMillis>3000</redis.timeBetweenEvictionRunsMillis>
                 <redis.minEvictableIdleTimeMillis>3000</redis.minEvictableIdleTimeMillis>
                 <redis.testOnBorrow>false</redis.testOnBorrow>

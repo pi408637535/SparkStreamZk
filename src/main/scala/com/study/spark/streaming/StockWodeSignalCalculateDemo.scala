@@ -83,6 +83,7 @@ object StockWodeSignalCalculateDemo {
 		})
 
 
+
 		val windowData =
 			kafkaToupleData.reduceByKeyAndWindow(
 			(oldStockWd,newStockWd)=>{   //key值相同，如何过滤

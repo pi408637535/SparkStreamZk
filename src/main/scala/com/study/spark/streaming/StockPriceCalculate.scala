@@ -21,7 +21,7 @@ object StockPriceCalculate {
 	def main(args: Array[String]): Unit = {
 		// Create context with 2 second batch interval
 		val sparkConf = new SparkConf().setAppName("StockPriceCalculate")//.setMaster("local[2]")
-		val ssc = new StreamingContext(sparkConf, Seconds(3))
+		val ssc = new StreamingContext(sparkConf, Seconds(6))
 		val paras = Array("192.168.1.226:9092,192.168.1.161:9092,192.168.1.227:9092", "stockPrice")
 
 
@@ -118,10 +118,19 @@ object StockPriceCalculate {
 								WodeInfoUtils.message(userId, "下跌推送", content, jsonData)
 
 
-								val sqlPush = "insert into push_log(stock_code,user_id,drop_price,price_now,sys_create_time) "+ "values('"  + jsonObject.get("stockCode") +"'" + "," + userId + "," + userPrice  + ","+ stockPrice + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
+
+								val sqlPush = "insert into push_log(stock_code,user_id,drop_price,price_now,sys_create_time) "+ "values('"  + stockCode +"'" + "," + userId + "," + userPrice  + ","+ stockPrice + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
+								try{
 								val stmtPush = connPush.createStatement()
 								stmtPush.executeUpdate(sqlPush)
+								}catch {
+									case ex:Exception=>{
+										val stmtPush = connPush.createStatement()
+										val sqlPush = "insert into push_error_log(stock_code,user_id,drop_price,sys_create_time) "+ "values(    '"  +   stockCode  +"'" + "," + userId  + "," +  userPrice  + "," + "'" + TimeUtils.getCurrent_time() +"'" + ")"
+										stmtPush.executeUpdate(sqlPush)
+									}
 
+								}
 							}
 						}else{
 							if(stockPrice >= userPrice){
@@ -151,7 +160,7 @@ object StockPriceCalculate {
 								jsonData.put("content", content)
 								WodeInfoUtils.message(userId, "上涨推送", content, jsonData)
 
-								val sqlPush = "insert into push_log(stock_code,user_id,inc_price,price_now,sys_create_time) "+ "values('"  + jsonObject.get("stockCode") +"'" + "," + userId + "," + userPrice  + ","+ stockPrice + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
+								val sqlPush = "insert into push_log(stock_code,user_id,inc_price,price_now,sys_create_time) "+ "values('"  + stockCode +"'" + "," + userId + "," + userPrice  + ","+ stockPrice + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
 								val stmtPush = connPush.createStatement()
 								stmtPush.executeUpdate(sqlPush)
 
