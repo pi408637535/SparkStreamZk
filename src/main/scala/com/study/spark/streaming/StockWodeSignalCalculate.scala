@@ -31,7 +31,7 @@ object StockWodeSignalCalculate {
 		//缓存stock数据
 		//需要checkpoint
 		val redisStockInfo = RedisStockInfoClient.getResource()
-		val stockCodeString = redisStockInfo.lrange(StockRedisConstants.STOCK_ALL_CODE, 0 ,-1);
+		val stockCodeString = redisStockInfo.lrange(StockRedisConstants.STOCK_ALL_PAN_CODE, 0 ,-1);
 
 		/*for(jsonString <-  stockCodeString){
 			import com.stockemotion.common.utils.JsonUtils

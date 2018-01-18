@@ -440,8 +440,8 @@
                 <redis.timeout>1000</redis.timeout>
 
                 <!--stock info-->
-                <stock.info.host>192.168.1.236</stock.info.host>
-                <stock.info.port>47614</stock.info.port>
+                <stock.info.host>192.168.1.126</stock.info.host>
+                <stock.info.port>47615</stock.info.port>
                 <stock.info.password>Hezhiyu2Cuiping</stock.info.password>
                 <stock.info.database>0</stock.info.database>
                 <!--stock wd-->

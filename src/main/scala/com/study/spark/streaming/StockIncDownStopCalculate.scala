@@ -37,7 +37,7 @@ object StockIncDownStopCalculate {
 		//缓存stock数据
 		//需要checkpoint
 		val redisStockInfo = RedisStockInfoClient.getResource()
-		val stockCodeString = redisStockInfo.lrange(StockRedisConstants.STOCK_ALL_CODE, 0 ,-1);
+		val stockCodeString = redisStockInfo.lrange(StockRedisConstants.STOCK_ALL_PAN_CODE, 0 ,-1);
 		for(jsonString <-  stockCodeString){
 			import com.stockemotion.common.utils.JsonUtils
 			val jsonObject = JsonUtils.TO_JSONObject(jsonString)
@@ -146,9 +146,9 @@ object StockIncDownStopCalculate {
 		ssc.awaitTermination()
 	}
 
-	private def getUpStopMessage(stockName: String, stockCode: String, stockPriceClose: Double, stockPercent: String) =  "小沃盯盘提醒您：您的自选股" + stockName + "(" + stockCode + ")于 " + DateUtils.getCurrentFormatTime("yyyy-MM-dd HH:mm:ss") + "下跌  " +
-	  stockPercent + "%， 已达到今日跌停价 " + stockPriceClose + ", 更多信息请点击查看详情。";
+	private def getUpStopMessage(stockName: String, stockCode: String, stockPriceClose: Double, stockPercent: String) =  "小沃盯盘提醒您：您的自选股" + stockName + "(" + stockCode + ")于 " + DateUtils.getCurrentFormatTime("yyyy-MM-dd HH:mm:ss") + "上涨" +
+	  stockPercent + "%， 已达到今日涨停价 " + stockPriceClose + ", 更多信息请点击查看详情。";
 
-	private def getDownStopMessage(stockName: String, stockCode: String, stockPriceClose: Double, stockPercent: String) =  "小沃盯盘提醒您：您的自选股" + stockName + "(" + stockCode + ")于 " + DateUtils.getCurrentFormatTime("yyyy-MM-dd HH:mm:ss") + "上涨  " +
+	private def getDownStopMessage(stockName: String, stockCode: String, stockPriceClose: Double, stockPercent: String) =  "小沃盯盘提醒您：您的自选股" + stockName + "(" + stockCode + ")于 " + DateUtils.getCurrentFormatTime("yyyy-MM-dd HH:mm:ss") + "下跌" +
 	  stockPercent + "%， 已达到今日跌停价 " + stockPriceClose + ", 更多信息请点击查看详情。";
 }

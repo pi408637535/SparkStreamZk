@@ -31,7 +31,7 @@ object StockPercentCalculate {
 		//缓存stock数据
 		//需要checkpoint
 		val redisStockInfo = RedisStockInfoClient.getResource()
-		val stockCodeString = redisStockInfo.lrange(StockRedisConstants.STOCK_ALL_CODE, 0 ,-1);
+		val stockCodeString = redisStockInfo.lrange(StockRedisConstants.STOCK_ALL_PAN_CODE, 0 ,-1);
 		for(jsonString <-  stockCodeString){
 			import com.stockemotion.common.utils.JsonUtils
 			val jsonObject = JsonUtils.TO_JSONObject(jsonString)
@@ -41,16 +41,16 @@ object StockPercentCalculate {
 		}
 
 		//大盘
-		val stockPanCode = redisStockInfo.hgetAll(StockRedisConstants.STOCK_ALL_PAN_CODE)
+	//	val stockPanCode = redisStockInfo.lrange(StockRedisConstants.STOCK_ALL_PAN_CODE, 0 ,-1)
 		import com.alibaba.fastjson.JSONObject
 		import com.stockemotion.common.utils.JsonUtils
 
-		for (entry <- stockPanCode.entrySet()) {
+		/*for (entry <- stockPanCode.entrySet()) {
 			val jsonObject = JsonUtils.TO_JSONObject(entry.getValue())
 			val stockCode = ObjectUtils.toString(jsonObject.get("stock_code"))
 			val stockName = ObjectUtils.toString(jsonObject.get("stock_name"))
 			stockInfoMap.put(stockCode, stockName)
-		}
+		}*/
 		RedisStockInfoClient.releaseResource(redisStockInfo)
 
 
@@ -105,13 +105,17 @@ object StockPercentCalculate {
 
 
 								val content = StockPercentCalculate.getPercentDownContent(stockName, stockCodeUsual, stockPercent, userPercent)
+
 								val deviceType = ObjectUtils.toInteger(redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_DEVICETYPE + userId)).byteValue
 
 
 								val message = f"下跌$stockPercent 到达你设置的$userPercent%.2f "
 
-
+								try{
 								PushUtils.sendElfPushMessage(stockCodeUsual, stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), message, deviceType)
+								}catch {
+									case e:Exception=> println("-------------------------"+ userId)
+								}
 
 								val jsonData = new JSONObject()
 								jsonData.put("stockCode", stockCodeUsual)

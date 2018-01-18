@@ -6,9 +6,9 @@ package com.study.spark.config
 object StockRedisConstants {
 
 	//所有的股票code 大盘的
-	val STOCK_ALL_PAN_CODE = "CN:STK:INDEXLIST:APP"
+	val STOCK_ALL_PAN_CODE = "CN:STK:CODELIST:APP"
 	//所有股票Code
-	val STOCK_ALL_CODE = "CN:STK:CODELIST:APP:TEST"
+	//val STOCK_ALL_CODE = "CN:STK:CODELIST:APP:TEST"
 
 	val STOCK_CODE_KEY = "CN:STK:STOCKINFO:*"
 

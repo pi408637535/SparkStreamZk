@@ -31,7 +31,7 @@ object StockPriceCalculate {
 		//缓存stock数据
 		//需要checkpoint
 
-		val stockCodeString = redisStockInfo.lrange(StockRedisConstants.STOCK_ALL_CODE, 0 ,-1);
+		val stockCodeString = redisStockInfo.lrange(StockRedisConstants.STOCK_ALL_PAN_CODE, 0 ,-1);
 		for(jsonString <-  stockCodeString){
 			import com.stockemotion.common.utils.JsonUtils
 			val jsonObject = JsonUtils.TO_JSONObject(jsonString)
@@ -41,16 +41,16 @@ object StockPriceCalculate {
 		}
 
 		//大盘
-		val stockPanCode = redisStockInfo.hgetAll(StockRedisConstants.STOCK_ALL_PAN_CODE)
+	//	val stockPanCode = redisStockInfo.hgetAll(StockRedisConstants.STOCK_ALL_PAN_CODE)
 		import com.alibaba.fastjson.JSONObject
 		import com.stockemotion.common.utils.JsonUtils
 
-		for (entry <- stockPanCode.entrySet()) {
+	/*	for (entry <- stockPanCode.entrySet()) {
 			val jsonObject = JsonUtils.TO_JSONObject(entry.getValue())
 			val stockCode = ObjectUtils.toString(jsonObject.get("stock_code"))
 			val stockName = ObjectUtils.toString(jsonObject.get("stock_name"))
 			stockInfoMap.put(stockCode, stockName)
-		}
+		}*/
 
 		RedisStockInfoClient.releaseResource(redisStockInfo)
 
