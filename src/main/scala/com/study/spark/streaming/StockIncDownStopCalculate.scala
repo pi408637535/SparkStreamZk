@@ -23,7 +23,7 @@ import org.apache.commons.collections.CollectionUtils
 object StockIncDownStopCalculate {
 	def main(args: Array[String]): Unit = {
 		// Create context with 2 second batch interval
-		val sparkConf = new SparkConf().setAppName("StockIncDownStopCalculate")// .setMaster("local[2]")
+		val sparkConf = new SparkConf().setAppName("StockIncDownStopCalculate").setMaster("spark://spark1:7077")// .setMaster("local[2]")
 		val ssc = new StreamingContext(sparkConf, Seconds(1))
 	//	val paras = Array("192.168.152.137:9092,192.168.152.160:9092,192.168.152.163:9092", "incDownStop")
 	    val paras = Array("192.168.1.226:9092,192.168.1.161:9092,192.168.1.227:9092", "incDownStopNew")
