@@ -4,10 +4,11 @@ import java.util
 
 import com.alibaba.fastjson.{JSONArray, JSONObject}
 import com.stockemotion.common.utils.{DateUtils, JsonUtils, ObjectUtils}
+import com.study.spark.broadcast.StockInfoSink
 import com.study.spark.config.{PushRedisConstants, StockRedisConstants}
-import com.study.spark.pool.{RedisStockInfoClient, RedisStockPushClient}
+import com.study.spark.pool.{RedisClient, RedisStockInfoClient, RedisStockPushClient}
 import kafka.serializer.StringDecoder
-import org.apache.spark.SparkConf
+import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.apache.spark.streaming.kafka.KafkaUtils
 
@@ -16,6 +17,7 @@ import com.study.spark.config.PushRedisConstants
 import com.study.spark.streaming.mysql.{MDBManager, SparkPushConnectionPool}
 import com.study.spark.utils.{PushUtils, StringUtils, TimeUtils, WodeInfoUtils}
 import org.apache.commons.collections.CollectionUtils
+import org.apache.spark.broadcast.Broadcast
 /**
   * Created by piguanghua on 2017/9/13.
   */
@@ -25,6 +27,7 @@ object StockIncDownStopCalculate {
 		// Create context with 2 second batch interval
 		val sparkConf = new SparkConf().setAppName("StockIncDownStopCalculate").setMaster("spark://spark1:7077")// .setMaster("local[2]")
 		val ssc = new StreamingContext(sparkConf, Seconds(1))
+
 	//	val paras = Array("192.168.152.137:9092,192.168.152.160:9092,192.168.152.163:9092", "incDownStop")
 	    val paras = Array("192.168.1.226:9092,192.168.1.161:9092,192.168.1.227:9092", "incDownStopNew")
 		val Array(brokers, topics) = paras
@@ -33,7 +36,7 @@ object StockIncDownStopCalculate {
 		val messages = KafkaUtils.createDirectStream[String, String, StringDecoder, StringDecoder](
 			ssc, kafkaParams, topicsSet)
 
-		val stockInfoMap = scala.collection.mutable.Map[String, String]()
+		/*val stockInfoMap = scala.collection.mutable.Map[String, String]()
 		//缓存stock数据
 		//需要checkpoint
 		val redisStockInfo = RedisStockInfoClient.getResource()
@@ -46,6 +49,9 @@ object StockIncDownStopCalculate {
 			stockInfoMap += (stockCode->stockName)
 		}
 		RedisStockInfoClient.releaseResource(redisStockInfo)
+		val stockInfoBroadcast:Broadcast[scala.collection.mutable.Map[String, String]] = sc.broadcast(stockInfoMap)*/
+		val broadcastVal = StockInfoSink.broadcastStockInfo(ssc.sparkContext)
+	//	val redisPoolBroadcastVal = ssc.sparkContext.broadcast(new RedisClient)
 
 		//收集数据
 		val event=messages.flatMap(line => {
@@ -57,7 +63,7 @@ object StockIncDownStopCalculate {
 
 			jsonArray.foreachPartition(iterator=>{
 				val connPush = MDBManager.getMDBManager.getConnection
-
+			//	val test = redisPoolBroadcastVal.value.jedisPool
 				val redisStockPushClient = RedisStockPushClient.pool.getResource()
 
 				iterator.foreach(iteratorElement=>{
@@ -70,7 +76,7 @@ object StockIncDownStopCalculate {
 					val stockPriceYesterday = iteratorElement.get("stockPriceYesterday").toString.toDouble
 					val stockCode = iteratorElement.get("stockCode").toString
 
-					val stockName = stockInfoMap.get(iteratorElement.get("stockCode").toString).get
+					val stockName = broadcastVal.value.get(iteratorElement.get("stockCode").toString).get
 					val stockCodeUsual = stockCode.substring(0, stockCode.lastIndexOf("."))
 					val stockPercent = StringUtils.formatDouble( (stockPriceClose - stockPriceYesterday) / stockPriceYesterday * 100 )
 
