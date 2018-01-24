@@ -10,6 +10,7 @@ import org.apache.spark.SparkConf
 import org.apache.spark.streaming.kafka.KafkaUtils
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 import com.stockemotion.common.utils.{DateUtils, ObjectUtils}
+import com.study.spark.broadcast.StockInfoSink
 import org.apache.commons.collections.CollectionUtils
 
 import scala.collection.JavaConversions._
@@ -24,11 +25,11 @@ object StockPriceCalculate {
 		  .setMaster("spark://spark1:7077")
 
 		//.setMaster("local[2]")
-		val ssc = new StreamingContext(sparkConf, Seconds(6))
+		val ssc = new StreamingContext(sparkConf, Seconds(1))
 		val paras = Array("192.168.1.226:9092,192.168.1.161:9092,192.168.1.227:9092", "stockPrice")
 
 
-		val stockInfoMap = scala.collection.mutable.Map[String, String]()
+		/*val stockInfoMap = scala.collection.mutable.Map[String, String]()
 		val redisStockInfo = RedisStockInfoClient.getResource()
 
 		//缓存stock数据
@@ -41,7 +42,7 @@ object StockPriceCalculate {
 			val stockCode = ObjectUtils.toString(jsonObject.get("stock_code"))
 			val stockName = ObjectUtils.toString(jsonObject.get("stock_name"))
 			stockInfoMap += (stockCode->stockName)
-		}
+		}*/
 
 		//大盘
 	//	val stockPanCode = redisStockInfo.hgetAll(StockRedisConstants.STOCK_ALL_PAN_CODE)
@@ -55,13 +56,15 @@ object StockPriceCalculate {
 			stockInfoMap.put(stockCode, stockName)
 		}*/
 
-		RedisStockInfoClient.releaseResource(redisStockInfo)
+		//RedisStockInfoClient.releaseResource(redisStockInfo)
 
 		val Array(brokers, topics) = paras
 		val topicsSet = topics.split(",").toSet
 		val kafkaParams = Map[String, String]("metadata.broker.list" -> brokers)
 		val messages = KafkaUtils.createDirectStream[String, String, StringDecoder, StringDecoder](
 			ssc, kafkaParams, topicsSet)
+
+		val broadcastVal = StockInfoSink.broadcastStockInfo(ssc.sparkContext)
 
 		//收集数据
 		val event=messages.flatMap(line => {
@@ -89,7 +92,7 @@ object StockPriceCalculate {
 						val stockCode = jsonObject.get("stockCode").toString
 						val userId = jsonObject.get("userId").toString
 
-						val stockName = stockInfoMap.get(jsonObject.get("stockCode").toString).get
+						val stockName = broadcastVal.value.get(jsonObject.get("stockCode").toString).get
 						val stockCodeUsual = stockCode.substring(0, stockCode.lastIndexOf("."))
 
 						if(state == 0){  //down
