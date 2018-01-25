@@ -40,36 +40,109 @@ object StockIncDownStopCalculate {
 		val  zkClient= new ZkClient(zkServerIp, 30000, 30000,ZKStringSerializer)
 
 		val sscDStream = SparkDirectStreamingUtils.createStreamingContext(appName,bootStrapServer,zkServerIp,zkAddress,topics,processTime )
-
-		/*sscDStream._2.foreachRDD( rdd=>{
+		val broadcastVal = StockInfoSink.broadcastStockInfo(sscDStream._1.sparkContext)
+		sscDStream._2.foreachRDD( rdd=>{
 
 			log.info("foreachRDD")
 
 			if(!rdd.isEmpty()){//只处理有数据的rdd，没有数据的直接跳过
+
+				val connPush = MDBManager.getMDBManager.getConnection
+				//	val test = redisPoolBroadcastVal.value.jedisPool
+				val redisStockPushClient = RedisStockPushClient.pool.getResource()
 
 				//迭代分区，里面的代码是运行在executor上面
 				rdd.foreachPartition(partitions=>{
 
 					//如果没有使用广播变量，连接资源就在这个地方初始化
 					//比如数据库连接，hbase，elasticsearch，solr，等等
-
-
 					//遍历每一个分区里面的消息
 					partitions.foreach(msg=>{
+						val data = JsonUtils.TO_JSONObject(msg._2)
+						val stockPriceClose = data.get("stockPriceClose").toString.toDouble
+						val stockPriceHigh = data.get("stockPriceHigh").toString.toDouble
+						val stockPriceLow = data.get("stockPriceLow").toString.toDouble
+						val stockPriceYesterday = data.get("stockPriceYesterday").toString.toDouble
+						val stockCode = data.get("stockCode").toString
+						val stockName = broadcastVal.value.get(data.get("stockCode").toString).get
+						val stockCodeUsual = stockCode.substring(0, stockCode.lastIndexOf("."))
+						val stockPercent = StringUtils.formatDouble( (stockPriceClose - stockPriceYesterday) / stockPriceYesterday * 100 )
+
+						if(stockPriceClose >= stockPriceHigh ){ //涨停
+
+							val userSet = redisStockPushClient.smembers(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_USER_SET   + stockCode )
+
+							userSet.foreach(userId=>{
+
+								val content = getUpStopMessage(stockName, stockCodeUsual, stockPriceClose, stockPercent)
+								val pushMessage = StockIncDownStopCalculate.getUpStopMessage(stockName, stockPercent, stockPriceClose, stockPercent)
+								val deviceType = ObjectUtils.toInteger(redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_DEVICETYPE + userId)).byteValue
+
+								PushUtils.sendElfPushMessage(stockCodeUsual, stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), pushMessage, deviceType)
+
+								redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_USER_SET + stockCode, userId)
+
+								val wodeInfo = new JSONObject()
+								wodeInfo.put("stockCode", stockCodeUsual)
+								wodeInfo.put("stockName", stockName)
+								wodeInfo.put("content", content)
+								WodeInfoUtils.message(userId, "涨跌停推送", content, wodeInfo)
+
+
+								val sqlPush = "insert into push_log(stock_code,user_id,inc_drop_stop,percent_now,sys_create_time) "+ "values('"  + stockCode +"'" + "," + userId + "," + 1  + ","+ stockPercent + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
+								val stmtPush = connPush.createStatement()
+								stmtPush.execute(sqlPush)
+
+							})
+						}
+						if(stockPriceClose <= stockPriceLow ){
+							val userSet = redisStockPushClient.smembers(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_USER_SET   + stockCode )
+
+							userSet.foreach(userId=>{
+								val content = getDownStopMessage(stockName, stockCodeUsual, stockPriceClose, stockPercent)
+								val pushMessage = StockIncDownStopCalculate.getUpStopMessage(stockName, stockPercent, stockPriceClose, stockPercent)
+								val deviceType = ObjectUtils.toInteger(redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_DEVICETYPE + userId)).byteValue
+								PushUtils.sendElfPushMessage(stockCodeUsual, stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), pushMessage, deviceType)
+
+								redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_USER_SET + stockCode, userId)
+
+								val wodeInfo = new JSONObject()
+								wodeInfo.put("stockCode", stockCodeUsual)
+								wodeInfo.put("stockName", stockName)
+								wodeInfo.put("content", content)
+								WodeInfoUtils.message(userId, "涨跌停推送", content, wodeInfo)
+
+
+								val sqlPush = "insert into push_log(stock_code,user_id,inc_drop_stop,percent_now,sys_create_time) "+ "values('"  + stockCode +"'" + "," + userId + "," + 0  + ","+ stockPercent + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
+								val stmtPush = connPush.createStatement()
+								stmtPush.executeUpdate(sqlPush)
+
+							})
+						}
+						if (CollectionUtils.isEmpty( redisStockPushClient.smembers(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_USER_SET + stockCode) )) {
+							redisStockPushClient.del(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_USER_SET + stockCode)
+							redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_STOCK_SET, stockCode)
+						}
+
+
 						log.info("读取的数据："+msg)
 						//process(msg)  //处理每条数据
 
 					})
 				})
+
+
+				RedisStockPushClient.pool.returnResource(redisStockPushClient)
+				connPush.close()
 				//更新每个批次的偏移量到zk中，注意这段代码是在driver上执行的
 				KafkaOffsetManager.saveOffsets(zkClient,zkAddress,rdd)
 			}
 
-		})*/
+		})
 
-		sscDStream.start()
-		SparkDirectStreamingUtils.daemonHttpServer(5555,sscDStream)
-		sscDStream.awaitTermination()
+		sscDStream._1.start()
+		SparkDirectStreamingUtils.daemonHttpServer(5555,sscDStream._1)
+		sscDStream._1.awaitTermination()
 
 
 

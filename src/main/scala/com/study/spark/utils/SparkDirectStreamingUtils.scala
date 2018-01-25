@@ -29,7 +29,7 @@ object SparkDirectStreamingUtils {
     * 创建StreamingContext
     * @return
     */
-  def createStreamingContext(appName:String,bootStrapServer:String,zkServerIp:String,zkAddress:String,topics:String,processTime:Long):StreamingContext={
+  def createStreamingContext(appName:String,bootStrapServer:String,zkServerIp:String,zkAddress:String,topics:String,processTime:Long):(StreamingContext,InputDStream[(String,String)])={
 
     val isLocal=false//是否使用local模式
     val firstReadLastest=true//第一次启动是否从最新的开始消费
@@ -54,8 +54,8 @@ object SparkDirectStreamingUtils {
 
     val rdds:InputDStream[(String,String)]=createKafkaStream(ssc,kafkaParams,zkClient,zkOffsetPath,topicsSet)
 
-   // (ssc,rdds)
-    //开始处理数据
+    (ssc,rdds)
+   /* //开始处理数据
     rdds.foreachRDD( rdd=>{
 
       if(!rdd.isEmpty()){//只处理有数据的rdd，没有数据的直接跳过
@@ -86,7 +86,7 @@ object SparkDirectStreamingUtils {
     })
 
 
-    ssc//返回StreamContext
+    ssc//返回StreamContext*/
 
   }
 
