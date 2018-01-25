@@ -19,8 +19,7 @@ import kafka.api.OffsetRequest
 import kafka.utils.ZKStringSerializer
 import org.I0Itec.zkclient.ZkClient
 import org.apache.commons.collections.CollectionUtils
-import org.apache.spark.broadcast.Broadcast
-import org.apache.spark.streaming.dstream.InputDStream
+
 /**
   * Created by piguanghua on 2017/9/13.
   */
@@ -36,23 +35,22 @@ object StockIncDownStopCalculate {
 		val zkServerIp:String = "spark1:2181,spark2:2181,spark3:2181"
 		val zkAddress:String = "/sparkStreaming/incDownStop"
 		val topics:String = "incDownStopNew"
-		val processTime:Long = 30
+		val processTime:Long = 3
 		val  zkClient= new ZkClient(zkServerIp, 30000, 30000,ZKStringSerializer)
 
 		val sscDStream = SparkDirectStreamingUtils.createStreamingContext(appName,bootStrapServer,zkServerIp,zkAddress,topics,processTime )
 		val broadcastVal = StockInfoSink.broadcastStockInfo(sscDStream._1.sparkContext)
 		sscDStream._2.foreachRDD( rdd=>{
 
-			log.info("foreachRDD")
-
 			if(!rdd.isEmpty()){//只处理有数据的rdd，没有数据的直接跳过
 
-				val connPush = MDBManager.getMDBManager.getConnection
-				//	val test = redisPoolBroadcastVal.value.jedisPool
-				val redisStockPushClient = RedisStockPushClient.pool.getResource()
 
 				//迭代分区，里面的代码是运行在executor上面
 				rdd.foreachPartition(partitions=>{
+					val connPush = MDBManager.getMDBManager.getConnection
+					//	val test = redisPoolBroadcastVal.value.jedisPool
+					val redisStockPushClient = RedisStockPushClient.pool.getResource()
+
 
 					//如果没有使用广播变量，连接资源就在这个地方初始化
 					//比如数据库连接，hbase，elasticsearch，solr，等等
@@ -129,11 +127,13 @@ object StockIncDownStopCalculate {
 						//process(msg)  //处理每条数据
 
 					})
+
+					RedisStockPushClient.pool.returnResource(redisStockPushClient)
+					connPush.close()
 				})
 
 
-				RedisStockPushClient.pool.returnResource(redisStockPushClient)
-				connPush.close()
+
 				//更新每个批次的偏移量到zk中，注意这段代码是在driver上执行的
 				KafkaOffsetManager.saveOffsets(zkClient,zkAddress,rdd)
 			}
