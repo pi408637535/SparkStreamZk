@@ -28,9 +28,9 @@ object StockPercentCalculate {
 
 		val appName = "StockIncDownStopCalculate"
 		val bootStrapServer:String = "192.168.1.226:9092,192.168.1.161:9092,192.168.1.227:9092"
-		val zkServerIp:String = "spark1:2181,spark2:2181,spark3:2181"
-		val zkAddress:String = "/sparkStreaming/incDownStop"
-		val topics:String = "incDownStopNew"
+		val zkServerIp:String = "192.168.1.213:2181,192.168.1.226:2181,192.168.1.161:2181"
+		val zkAddress:String = "/sparkStreaming/percentCalculate"
+		val topics:String = "stockPercent"
 		val processTime:Long = 3
 		val  zkClient= new ZkClient(zkServerIp, 30000, 30000,ZKStringSerializer)
 
@@ -53,95 +53,104 @@ object StockPercentCalculate {
 					//比如数据库连接，hbase，elasticsearch，solr，等等
 					//遍历每一个分区里面的消息
 					partitions.foreach(msg=>{
-						val data = JsonUtils.TO_JSONObject(msg._2)
-						val stockPercent = data.get("stockPercent").toString().toDouble
-						val userPercent = data.get("userPercentSetting") .toString().toDouble
-						val state = data.get("state").toString.toByte
+						val data = JsonUtils.TO_JSONArray(msg._2)
+						for(ele <- data){
+							val jsonObject =JsonUtils.TO_JSONObject(( ele.toString))
 
-						val stockCode = data.get("stockCode").toString
-						val userId = data.get("userId").toString
+							val stockPercent = jsonObject.get("stockPercent").toString().toDouble
+							val userPercent = jsonObject.get("userPercentSetting") .toString().toDouble
+							val state = jsonObject.get("state").toString.toByte
 
-						val stockName = broadcastVal.value.get(data.get("stockCode").toString).get
-						val stockCodeUsual = stockCode.substring(0, stockCode.lastIndexOf("."))
+							val stockCode = jsonObject.get("stockCode").toString
+							val userId = jsonObject.get("userId").toString
+
+							val stockName = broadcastVal.value.get(jsonObject.get("stockCode").toString).get
+							val stockCodeUsual = stockCode.substring(0, stockCode.lastIndexOf("."))
 
 
-						if(state == 0){  //down
-							if(stockPercent <= userPercent){
 
-								redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_PERCENTAGE_DOWN_USER_SET + stockCode, userId)
-								redisStockPushClient.del(PushRedisConstants.STOCK_PUSH_USER_PERCENTAGE_DOWN + userId + ":" + stockCode)
+							if(state == 0){  //down
+								if(stockPercent <= userPercent){
 
-								if (CollectionUtils.isEmpty(redisStockPushClient.smembers(PushRedisConstants.STOCK_PUSH_ELF_PERCENTAGE_DOWN_USER_SET + stockCode))) {
-									redisStockPushClient.del(PushRedisConstants.STOCK_PUSH_ELF_PERCENTAGE_DOWN_USER_SET + stockCode)
-									redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_PERCENTAGE_DOWN_STOCK_SET, stockCode)
+									redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_PERCENTAGE_DOWN_USER_SET + stockCode, userId)
+									redisStockPushClient.del(PushRedisConstants.STOCK_PUSH_USER_PERCENTAGE_DOWN + userId + ":" + stockCode)
+
+									if (CollectionUtils.isEmpty(redisStockPushClient.smembers(PushRedisConstants.STOCK_PUSH_ELF_PERCENTAGE_DOWN_USER_SET + stockCode))) {
+										redisStockPushClient.del(PushRedisConstants.STOCK_PUSH_ELF_PERCENTAGE_DOWN_USER_SET + stockCode)
+										redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_PERCENTAGE_DOWN_STOCK_SET, stockCode)
+									}
+
+
+									val content = StockPercentCalculate.getPercentDownContent(stockName, stockCodeUsual, stockPercent, userPercent)
+
+									val deviceType = ObjectUtils.toInteger(redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_DEVICETYPE + userId)).byteValue
+
+
+									val message = f"下跌$stockPercent 到达你设置的$userPercent%.2f "
+
+									try{
+										PushUtils.sendElfPushMessage(stockCodeUsual, stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), message, deviceType)
+									}catch {
+										case e:Exception=> println("-------------------------"+ userId)
+									}
+
+									val jsonData = new JSONObject()
+									jsonData.put("stockCode", stockCodeUsual)
+									jsonData.put("stockName", stockName)
+									jsonData.put("content", content)
+									WodeInfoUtils.message(userId, "跌幅推送", content, jsonData)
+
+
+									val sqlPush = "insert into push_log(stock_code,user_id,drop_percent,percent_now,sys_create_time) "+ "values('"  + stockCode +"'" + "," + userId + "," + userPercent  + ","+ stockPercent + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
+									val stmtPush = connPush.createStatement()
+									stmtPush.executeUpdate(sqlPush)
+
 								}
+							}else{
+								if(stockPercent >= userPercent){
+
+									val redisStockPushClient = RedisStockPushClient.pool.getResource
+									redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_PERCENTAGE_UP_USER_SET + stockCode, userId)
+									redisStockPushClient.del(PushRedisConstants.STOCK_PUSH_USER_PERCENTAGE_UP + userId + ":" + stockCode)
+
+									if (CollectionUtils.isEmpty(redisStockPushClient.smembers(PushRedisConstants.STOCK_PUSH_ELF_PERCENTAGE_UP_USER_SET + stockCode))) {
+										redisStockPushClient.del(PushRedisConstants.STOCK_PUSH_ELF_PERCENTAGE_UP_USER_SET + stockCode)
+										redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_PERCENTAGE_UP_STOCK_SET, stockCode)
+									}
 
 
-								val content = StockPercentCalculate.getPercentDownContent(stockName, stockCodeUsual, stockPercent, userPercent)
+									val content = StockPercentCalculate.getPercentUpContent(stockName,stockCodeUsual , stockPercent, userPercent)
+									val deviceType = ObjectUtils.toInteger(redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_DEVICETYPE + userId)).byteValue
 
-								val deviceType = ObjectUtils.toInteger(redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_DEVICETYPE + userId)).byteValue
+
+									val message = f"上涨$stockPercent 到达你设置的$userPercent%.2f "
 
 
-								val message = f"下跌$stockPercent 到达你设置的$userPercent%.2f "
-
-								try{
 									PushUtils.sendElfPushMessage(stockCodeUsual, stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), message, deviceType)
-								}catch {
-									case e:Exception=> println("-------------------------"+ userId)
+
+									val jsonData = new JSONObject()
+									jsonData.put("stockCode", stockCodeUsual)
+									jsonData.put("stockName", stockName)
+									jsonData.put("content", content)
+									WodeInfoUtils.message(userId, "涨幅推送", content, jsonData)
+
+									val sqlPush = "insert into push_log(stock_code,user_id,inc_percent,percent_now,sys_create_time) "+ "values('"  + stockCode +"'" + "," + userId + "," + userPercent  + ","+  stockPercent + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
+									val stmtPush = connPush.createStatement()
+									stmtPush.executeUpdate(sqlPush)
+
+
+
+
+
 								}
-
-								val jsonData = new JSONObject()
-								jsonData.put("stockCode", stockCodeUsual)
-								jsonData.put("stockName", stockName)
-								jsonData.put("content", content)
-								WodeInfoUtils.message(userId, "跌幅推送", content, jsonData)
-
-
-								val sqlPush = "insert into push_log(stock_code,user_id,drop_percent,percent_now,sys_create_time) "+ "values('"  + stockCode +"'" + "," + userId + "," + userPercent  + ","+ stockPercent + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
-								val stmtPush = connPush.createStatement()
-								stmtPush.executeUpdate(sqlPush)
-
-							}
-						}else{
-							if(stockPercent >= userPercent){
-
-								val redisStockPushClient = RedisStockPushClient.pool.getResource
-								redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_PERCENTAGE_UP_USER_SET + stockCode, userId)
-								redisStockPushClient.del(PushRedisConstants.STOCK_PUSH_USER_PERCENTAGE_UP + userId + ":" + stockCode)
-
-								if (CollectionUtils.isEmpty(redisStockPushClient.smembers(PushRedisConstants.STOCK_PUSH_ELF_PERCENTAGE_UP_USER_SET + stockCode))) {
-									redisStockPushClient.del(PushRedisConstants.STOCK_PUSH_ELF_PERCENTAGE_UP_USER_SET + stockCode)
-									redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_PERCENTAGE_UP_STOCK_SET, stockCode)
-								}
-
-
-								val content = StockPercentCalculate.getPercentUpContent(stockName,stockCodeUsual , stockPercent, userPercent)
-								val deviceType = ObjectUtils.toInteger(redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_DEVICETYPE + userId)).byteValue
-
-
-								val message = f"上涨$stockPercent 到达你设置的$userPercent%.2f "
-
-
-								PushUtils.sendElfPushMessage(stockCodeUsual, stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), message, deviceType)
-
-								val jsonData = new JSONObject()
-								jsonData.put("stockCode", stockCodeUsual)
-								jsonData.put("stockName", stockName)
-								jsonData.put("content", content)
-								WodeInfoUtils.message(userId, "涨幅推送", content, jsonData)
-
-								val sqlPush = "insert into push_log(stock_code,user_id,inc_percent,percent_now,sys_create_time) "+ "values('"  + stockCode +"'" + "," + userId + "," + userPercent  + ","+  stockPercent + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
-								val stmtPush = connPush.createStatement()
-								stmtPush.executeUpdate(sqlPush)
-
-
-
-
-
 							}
 						}
 
-					  log.info("读取的数据："+msg)
+
+
+
+
+						log.info("读取的数据："+msg)
 						//process(msg)  //处理每条数据
 
 					})
