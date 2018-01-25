@@ -1,32 +1,183 @@
 package com.study.spark.streaming
 
 
+import com.alibaba.fastjson.JSONObject
 import com.study.spark.config.{PushRedisConstants, StockRedisConstants}
 import com.study.spark.pool.{RedisStockInfoClient, RedisStockPushClient}
 import com.study.spark.streaming.mysql.{MDBManager, SparkPushConnectionPool}
-import com.study.spark.utils.{PushUtils, StringUtils, TimeUtils, WodeInfoUtils}
+import com.study.spark.utils._
 import kafka.serializer.StringDecoder
 import org.apache.spark.SparkConf
 import org.apache.spark.streaming.kafka.KafkaUtils
 import org.apache.spark.streaming.{Seconds, StreamingContext}
-import com.stockemotion.common.utils.{DateUtils, ObjectUtils}
+import com.stockemotion.common.utils.{DateUtils, JsonUtils, ObjectUtils}
 import com.study.spark.broadcast.StockInfoSink
+import kafka.utils.ZKStringSerializer
+import org.I0Itec.zkclient.ZkClient
 import org.apache.commons.collections.CollectionUtils
 
-import scala.collection.JavaConversions._
+
 
 /**
   * Created by piguanghua on 2017/9/8.
   */
 object StockPriceCalculate {
+
+	val log = org.apache.log4j.LogManager.getLogger("StockPriceCalculate")
+
+
 	def main(args: Array[String]): Unit = {
-		// Create context with 2 second batch interval
+
+		val appName = "StockPriceCalculate"
+		val bootStrapServer:String = "192.168.1.226:9092,192.168.1.161:9092,192.168.1.227:9092"
+		val zkServerIp:String = "spark1:2181,spark2:2181,spark3:2181"
+		val zkAddress:String = "/sparkStreaming/priceCalculate"
+		val topics:String = "stockPrice"
+		val processTime:Long = 3
+		val  zkClient= new ZkClient(zkServerIp, 30000, 30000,ZKStringSerializer)
+
+		val sscDStream = SparkDirectStreamingUtils.createStreamingContext(appName,bootStrapServer,zkServerIp,zkAddress,topics,processTime )
+		val broadcastVal = StockInfoSink.broadcastStockInfo(sscDStream._1.sparkContext)
+
+		sscDStream._2.foreachRDD( rdd=>{
+
+			if(!rdd.isEmpty()){//只处理有数据的rdd，没有数据的直接跳过
+
+
+				//迭代分区，里面的代码是运行在executor上面
+				rdd.foreachPartition(partitions=>{
+					val connPush = MDBManager.getMDBManager.getConnection
+					//	val test = redisPoolBroadcastVal.value.jedisPool
+					val redisStockPushClient = RedisStockPushClient.pool.getResource()
+
+
+					//如果没有使用广播变量，连接资源就在这个地方初始化
+					//比如数据库连接，hbase，elasticsearch，solr，等等
+					//遍历每一个分区里面的消息
+					partitions.foreach(msg=>{
+						val data = JsonUtils.TO_JSONObject(msg._2)
+
+						val stockPrice = data.get("stockPriceClose").toString().toDouble
+						val userPrice = data.get("userPriceSetting") .toString().toDouble
+						val state = data.get("state").toString.toByte
+						val stockCode = data.get("stockCode").toString
+						val userId = data.get("userId").toString
+						val stockName = broadcastVal.value.get(data.get("stockCode").toString).get
+						val stockCodeUsual = stockCode.substring(0, stockCode.lastIndexOf("."))
+
+
+						if(state == 0){  //down
+							if(stockPrice <= userPrice){
+
+								val redisStockPushClient = RedisStockPushClient.pool.getResource
+								redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_PRICE_DOWN_USER_SET + stockCode, userId)
+								redisStockPushClient.del(PushRedisConstants.STOCK_PUSH_USER_PRICE_DOWN + userId + ":" + stockCode)
+
+								if (CollectionUtils.isEmpty(redisStockPushClient.smembers(PushRedisConstants.STOCK_PUSH_ELF_PRICE_DOWN_USER_SET + stockCode))) {
+									redisStockPushClient.del(PushRedisConstants.STOCK_PUSH_ELF_PRICE_DOWN_USER_SET + stockCode)
+									redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_PRICE_DOWN_STOCK_SET, stockCode)
+								}
+
+
+								val content = StockPriceCalculate.getPriceDownContent(stockName, stockCodeUsual, stockPrice, userPrice)
+								val deviceType = ObjectUtils.toInteger(redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_DEVICETYPE + userId)).byteValue
+
+
+								val message = f"下跌$stockPrice 到达你设置的$userPrice%.2f "
+
+
+								PushUtils.sendElfPushMessage(stockCodeUsual , stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), message, deviceType)
+
+								val jsonData = new JSONObject()
+								jsonData.put("stockCode", stockCodeUsual)
+								jsonData.put("stockName", stockName)
+								jsonData.put("content", content)
+								WodeInfoUtils.message(userId, "下跌推送", content, jsonData)
+
+
+
+								val sqlPush = "insert into push_log(stock_code,user_id,drop_price,price_now,sys_create_time) "+ "values('"  + stockCode +"'" + "," + userId + "," + userPrice  + ","+ stockPrice + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
+								try{
+									val stmtPush = connPush.createStatement()
+									stmtPush.executeUpdate(sqlPush)
+								}catch {
+									case ex:Exception=>{
+										val stmtPush = connPush.createStatement()
+										val sqlPush = "insert into push_error_log(stock_code,user_id,drop_price,sys_create_time) "+ "values(    '"  +   stockCode  +"'" + "," + userId  + "," +  userPrice  + "," + "'" + TimeUtils.getCurrent_time() +"'" + ")"
+										stmtPush.executeUpdate(sqlPush)
+									}
+
+								}
+							}
+						}else{
+							if(stockPrice >= userPrice){
+
+								val redisStockPushClient = RedisStockPushClient.pool.getResource
+								redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_PRICE_UP_USER_SET + stockCode, userId)
+								redisStockPushClient.del(PushRedisConstants.STOCK_PUSH_USER_PRICE_UP + userId + ":" + stockCode)
+
+								if (CollectionUtils.isEmpty(redisStockPushClient.smembers(PushRedisConstants.STOCK_PUSH_ELF_PRICE_UP_USER_SET + stockCode))) {
+									redisStockPushClient.del(PushRedisConstants.STOCK_PUSH_ELF_PRICE_UP_USER_SET + stockCode)
+									redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_PRICE_UP_STOCK_SET, stockCode)
+								}
+
+
+								val content = StockPriceCalculate.getPriceUpContent(stockName, stockCodeUsual, stockPrice, userPrice)
+								val deviceType = ObjectUtils.toInteger(redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_DEVICETYPE + userId)).byteValue
+
+
+								val message = f"上涨$stockPrice 到达你设置的$userPrice%.2f "
+
+
+								PushUtils.sendElfPushMessage(stockCodeUsual , stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), message, deviceType)
+
+								val jsonData = new JSONObject()
+								jsonData.put("stockCode", stockCodeUsual)
+								jsonData.put("stockName", stockName)
+								jsonData.put("content", content)
+								WodeInfoUtils.message(userId, "上涨推送", content, jsonData)
+
+								val sqlPush = "insert into push_log(stock_code,user_id,inc_price,price_now,sys_create_time) "+ "values('"  + stockCode +"'" + "," + userId + "," + userPrice  + ","+ stockPrice + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
+								val stmtPush = connPush.createStatement()
+								stmtPush.executeUpdate(sqlPush)
+
+							}
+						}
+
+						log.info("读取的数据："+msg)
+						//process(msg)  //处理每条数据
+
+					})
+
+					RedisStockPushClient.pool.returnResource(redisStockPushClient)
+					connPush.close()
+				})
+
+
+
+				//更新每个批次的偏移量到zk中，注意这段代码是在driver上执行的
+				KafkaOffsetManager.saveOffsets(zkClient,zkAddress,rdd)
+			}
+
+		})
+
+		sscDStream._1.start()
+		SparkDirectStreamingUtils.daemonHttpServer(5555,sscDStream._1)
+		sscDStream._1.awaitTermination()
+
+
+
+
+
+
+
+	/*	// Create context with 2 second batch interval
 		val sparkConf = new SparkConf().setAppName("StockPriceCalculate")
 		  .setMaster("spark://spark1:7077")
 
 		//.setMaster("local[2]")
 		val ssc = new StreamingContext(sparkConf, Seconds(1))
-		val paras = Array("192.168.1.226:9092,192.168.1.161:9092,192.168.1.227:9092", "stockPrice")
+		val paras = Array("192.168.1.226:9092,192.168.1.161:9092,192.168.1.227:9092", "stockPrice")*/
 
 
 		/*val stockInfoMap = scala.collection.mutable.Map[String, String]()
@@ -58,7 +209,7 @@ object StockPriceCalculate {
 
 		//RedisStockInfoClient.releaseResource(redisStockInfo)
 
-		val Array(brokers, topics) = paras
+	/*	val Array(brokers, topics) = paras
 		val topicsSet = topics.split(",").toSet
 		val kafkaParams = Map[String, String]("metadata.broker.list" -> brokers)
 		val messages = KafkaUtils.createDirectStream[String, String, StringDecoder, StringDecoder](
@@ -182,7 +333,7 @@ object StockPriceCalculate {
 		//	event.print()
 		//	event.print(1)
 		ssc.start()
-		ssc.awaitTermination()
+		ssc.awaitTermination()*/
 
 	}
 
