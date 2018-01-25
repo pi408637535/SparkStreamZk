@@ -5,36 +5,76 @@ import java.util
 import com.alibaba.fastjson.{JSONArray, JSONObject}
 import com.stockemotion.common.utils.{DateUtils, JsonUtils, ObjectUtils}
 import com.study.spark.broadcast.StockInfoSink
-import com.study.spark.config.{PushRedisConstants, StockRedisConstants}
 import com.study.spark.pool.{RedisClient, RedisStockInfoClient, RedisStockPushClient}
 import kafka.serializer.StringDecoder
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.streaming.{Seconds, StreamingContext}
-import org.apache.spark.streaming.kafka.KafkaUtils
+import org.apache.kafka.common.serialization.StringDeserializer
 
 import scala.collection.JavaConversions._
 import com.study.spark.config.PushRedisConstants
 import com.study.spark.streaming.mysql.{MDBManager, SparkPushConnectionPool}
-import com.study.spark.utils.{PushUtils, StringUtils, TimeUtils, WodeInfoUtils}
+import com.study.spark.utils._
+import kafka.api.OffsetRequest
+import kafka.utils.ZKStringSerializer
+import org.I0Itec.zkclient.ZkClient
 import org.apache.commons.collections.CollectionUtils
 import org.apache.spark.broadcast.Broadcast
+import org.apache.spark.streaming.dstream.InputDStream
 /**
   * Created by piguanghua on 2017/9/13.
   */
 
 object StockIncDownStopCalculate {
-	def main(args: Array[String]): Unit = {
-		// Create context with 2 second batch interval
-		val sparkConf = new SparkConf().setAppName("StockIncDownStopCalculate").setMaster("spark://spark1:7077")// .setMaster("local[2]")
-		val ssc = new StreamingContext(sparkConf, Seconds(1))
+	val log = org.apache.log4j.LogManager.getLogger("StockIncDownStopCalculate")
 
-	//	val paras = Array("192.168.152.137:9092,192.168.152.160:9092,192.168.152.163:9092", "incDownStop")
-	    val paras = Array("192.168.1.226:9092,192.168.1.161:9092,192.168.1.227:9092", "incDownStopNew")
-		val Array(brokers, topics) = paras
-		val topicsSet = topics.split(",").toSet
-		val kafkaParams = Map[String, String]("metadata.broker.list" -> brokers)
-		val messages = KafkaUtils.createDirectStream[String, String, StringDecoder, StringDecoder](
-			ssc, kafkaParams, topicsSet)
+
+	def main(args: Array[String]): Unit = {
+
+		val appName = "StockIncDownStopCalculate"
+		val bootStrapServer:String = "192.168.1.226:9092,192.168.1.161:9092,192.168.1.227:9092"
+		val zkServerIp:String = "spark1:2181,spark2:2181,spark3:2181"
+		val zkAddress:String = "/sparkStreaming/incDownStop"
+		val topics:String = "incDownStopNew"
+		val processTime:Long = 30
+		val  zkClient= new ZkClient(zkServerIp, 30000, 30000,ZKStringSerializer)
+
+		val sscDStream = SparkDirectStreamingUtils.createStreamingContext(appName,bootStrapServer,zkServerIp,zkAddress,topics,processTime )
+
+		/*sscDStream._2.foreachRDD( rdd=>{
+
+			log.info("foreachRDD")
+
+			if(!rdd.isEmpty()){//只处理有数据的rdd，没有数据的直接跳过
+
+				//迭代分区，里面的代码是运行在executor上面
+				rdd.foreachPartition(partitions=>{
+
+					//如果没有使用广播变量，连接资源就在这个地方初始化
+					//比如数据库连接，hbase，elasticsearch，solr，等等
+
+
+					//遍历每一个分区里面的消息
+					partitions.foreach(msg=>{
+						log.info("读取的数据："+msg)
+						//process(msg)  //处理每条数据
+
+					})
+				})
+				//更新每个批次的偏移量到zk中，注意这段代码是在driver上执行的
+				KafkaOffsetManager.saveOffsets(zkClient,zkAddress,rdd)
+			}
+
+		})*/
+
+		sscDStream.start()
+		SparkDirectStreamingUtils.daemonHttpServer(5555,sscDStream)
+		sscDStream.awaitTermination()
+
+
+
+		/*val messages = KafkaUtils.createDirectStream[String, String, StringDecoder, StringDecoder](
+			ssc, kafkaParams, topicsSet)*/
 
 		/*val stockInfoMap = scala.collection.mutable.Map[String, String]()
 		//缓存stock数据
@@ -50,16 +90,19 @@ object StockIncDownStopCalculate {
 		}
 		RedisStockInfoClient.releaseResource(redisStockInfo)
 		val stockInfoBroadcast:Broadcast[scala.collection.mutable.Map[String, String]] = sc.broadcast(stockInfoMap)*/
-		val broadcastVal = StockInfoSink.broadcastStockInfo(ssc.sparkContext)
+
+
+
+	//	val broadcastVal = StockInfoSink.broadcastStockInfo(ssc.sparkContext)
 	//	val redisPoolBroadcastVal = ssc.sparkContext.broadcast(new RedisClient)
 
 		//收集数据
-		val event=messages.flatMap(line => {
+		/*val event=stream.flatMap(line => {
 			val data = JsonUtils.TO_JSONObject(line._2)
 			Some(data)
-		})
+		})*/
 
-		event.foreachRDD(jsonArray =>{
+		/*event.foreachRDD(jsonArray =>{
 
 			jsonArray.foreachPartition(iterator=>{
 				val connPush = MDBManager.getMDBManager.getConnection
@@ -146,10 +189,8 @@ object StockIncDownStopCalculate {
 				connPush.close()
 			})
 
-		})
+		})*/
 
-		ssc.start()
-		ssc.awaitTermination()
 	}
 
 	private def getUpStopMessage(stockName: String, stockCode: String, stockPriceClose: Double, stockPercent: String) =  "小沃盯盘提醒您：您的自选股" + stockName + "(" + stockCode + ")于 " + DateUtils.getCurrentFormatTime("yyyy-MM-dd HH:mm:ss") + "上涨" +
