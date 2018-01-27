@@ -2,9 +2,9 @@ package com.study.spark.streaming
 
 
 import com.alibaba.fastjson.JSONObject
-import com.study.spark.config.{PushRedisConstants}
-import com.study.spark.pool.{ RedisStockPushClient}
-import com.study.spark.streaming.mysql.{MDBManager}
+import com.study.spark.config.PushRedisConstants
+import com.study.spark.pool.RedisStockPushClient
+import com.study.spark.streaming.mysql.MDBManager
 import com.study.spark.utils._
 import com.stockemotion.common.utils.{JsonUtils, ObjectUtils}
 import com.study.spark.broadcast.StockInfoSink
@@ -44,6 +44,7 @@ object StockPercentCalculate {
 
 				//迭代分区，里面的代码是运行在executor上面
 				rdd.foreachPartition(partitions=>{
+
 					val connPush = MDBManager.getMDBManager.getConnection
 					//	val test = redisPoolBroadcastVal.value.jedisPool
 					val redisStockPushClient = RedisStockPushClient.pool.getResource()
@@ -53,8 +54,12 @@ object StockPercentCalculate {
 					//比如数据库连接，hbase，elasticsearch，solr，等等
 					//遍历每一个分区里面的消息
 					partitions.foreach(msg=>{
+						log.warn("读取的数据："+msg)
+
+
 						val data = JsonUtils.TO_JSONArray(msg._2)
-						for(ele <- data){
+
+					/*	for(ele <- data){
 							val jsonObject =JsonUtils.TO_JSONObject(( ele.toString))
 
 							val stockPercent = jsonObject.get("stockPercent").toString().toDouble
@@ -144,13 +149,11 @@ object StockPercentCalculate {
 
 								}
 							}
-						}
+						}*/
 
 
 
 
-
-						log.info("读取的数据："+msg)
 						//process(msg)  //处理每条数据
 
 					})

@@ -13,6 +13,7 @@ import org.apache.kafka.common.serialization.StringDeserializer
 
 import scala.collection.JavaConversions._
 import com.study.spark.config.PushRedisConstants
+import com.study.spark.streaming.StockPercentCalculate.log
 import com.study.spark.streaming.mysql.{MDBManager, SparkPushConnectionPool}
 import com.study.spark.utils._
 import kafka.api.OffsetRequest
@@ -56,6 +57,9 @@ object StockIncDownStopCalculate {
 					//比如数据库连接，hbase，elasticsearch，solr，等等
 					//遍历每一个分区里面的消息
 					partitions.foreach(msg=>{
+						log.warn("读取的数据："+msg)
+
+
 						val data = JsonUtils.TO_JSONObject(msg._2)
 						val stockPriceClose = data.get("stockPriceClose").toString.toDouble
 						val stockPriceHigh = data.get("stockPriceHigh").toString.toDouble
@@ -66,7 +70,7 @@ object StockIncDownStopCalculate {
 						val stockCodeUsual = stockCode.substring(0, stockCode.lastIndexOf("."))
 						val stockPercent = StringUtils.formatDouble( (stockPriceClose - stockPriceYesterday) / stockPriceYesterday * 100 )
 
-						if(stockPriceClose >= stockPriceHigh ){ //涨停
+						/*if(stockPriceClose >= stockPriceHigh ){ //涨停
 
 							val userSet = redisStockPushClient.smembers(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_USER_SET   + stockCode )
 
@@ -120,10 +124,9 @@ object StockIncDownStopCalculate {
 						if (CollectionUtils.isEmpty( redisStockPushClient.smembers(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_USER_SET + stockCode) )) {
 							redisStockPushClient.del(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_USER_SET + stockCode)
 							redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_STOCK_SET, stockCode)
-						}
+						}*/
 
 
-						log.info("读取的数据："+msg)
 						//process(msg)  //处理每条数据
 
 					})

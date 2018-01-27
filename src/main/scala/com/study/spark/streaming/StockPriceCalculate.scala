@@ -12,9 +12,11 @@ import org.apache.spark.streaming.kafka.KafkaUtils
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 import com.stockemotion.common.utils.{DateUtils, JsonUtils, ObjectUtils}
 import com.study.spark.broadcast.StockInfoSink
+import com.study.spark.streaming.StockPercentCalculate.log
 import kafka.utils.ZKStringSerializer
 import org.I0Itec.zkclient.ZkClient
 import org.apache.commons.collections.CollectionUtils
+
 import scala.collection.JavaConversions._
 
 
@@ -55,6 +57,8 @@ object StockPriceCalculate {
 					//比如数据库连接，hbase，elasticsearch，solr，等等
 					//遍历每一个分区里面的消息
 					partitions.foreach(msg=>{
+						log.warn("读取的数据："+msg)
+
 						val data = JsonUtils.TO_JSONArray(msg._2)
 
 						for(ele <- data){
@@ -67,7 +71,7 @@ object StockPriceCalculate {
 							val stockName = broadcastVal.value.get(jsonObject.get("stockCode").toString).get
 							val stockCodeUsual = stockCode.substring(0, stockCode.lastIndexOf("."))
 
-							if(state == 0){  //down
+						/*	if(state == 0){  //down
 								if(stockPrice <= userPrice){
 
 									val redisStockPushClient = RedisStockPushClient.pool.getResource
@@ -143,11 +147,10 @@ object StockPriceCalculate {
 									stmtPush.executeUpdate(sqlPush)
 
 								}
-							}
+							}*/
 						}
 
 
-						log.info("读取的数据："+msg)
 						//process(msg)  //处理每条数据
 
 					})
