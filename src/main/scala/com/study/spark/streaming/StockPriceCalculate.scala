@@ -75,7 +75,7 @@ object StockPriceCalculate {
 							val stockName = broadcastVal.value.get(jsonObject.get("stockCode").toString).get
 							val stockCodeUsual = stockCode.substring(0, stockCode.lastIndexOf("."))
 
-						/*	if(state == 0){  //down
+							if(state == 0){  //down
 								if(stockPrice <= userPrice){
 
 									val redisStockPushClient = RedisStockPushClient.pool.getResource
@@ -95,13 +95,13 @@ object StockPriceCalculate {
 									val message = f"下跌$stockPrice 到达你设置的$userPrice%.2f "
 
 
-									PushUtils.sendElfPushMessage(stockCodeUsual , stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), message, deviceType)
+									//PushUtils.sendElfPushMessage(stockCodeUsual , stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), message, deviceType)
 
 									val jsonData = new JSONObject()
 									jsonData.put("stockCode", stockCodeUsual)
 									jsonData.put("stockName", stockName)
 									jsonData.put("content", content)
-									WodeInfoUtils.message(userId, "下跌推送", content, jsonData)
+									//WodeInfoUtils.message(userId, "下跌推送", content, jsonData)
 
 
 
@@ -138,20 +138,20 @@ object StockPriceCalculate {
 									val message = f"上涨$stockPrice 到达你设置的$userPrice%.2f "
 
 
-									PushUtils.sendElfPushMessage(stockCodeUsual , stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), message, deviceType)
+									//PushUtils.sendElfPushMessage(stockCodeUsual , stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), message, deviceType)
 
 									val jsonData = new JSONObject()
 									jsonData.put("stockCode", stockCodeUsual)
 									jsonData.put("stockName", stockName)
 									jsonData.put("content", content)
-									WodeInfoUtils.message(userId, "上涨推送", content, jsonData)
+									//WodeInfoUtils.message(userId, "上涨推送", content, jsonData)
 
 									val sqlPush = "insert into push_log(stock_code,user_id,inc_price,price_now,sys_create_time) "+ "values('"  + stockCode +"'" + "," + userId + "," + userPrice  + ","+ stockPrice + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
 									val stmtPush = connPush.createStatement()
 									stmtPush.executeUpdate(sqlPush)
 
 								}
-							}*/
+							}
 						}
 
 

@@ -72,7 +72,7 @@ object StockIncDownStopCalculate {
 						val stockCodeUsual = stockCode.substring(0, stockCode.lastIndexOf("."))
 						val stockPercent = StringUtils.formatDouble( (stockPriceClose - stockPriceYesterday) / stockPriceYesterday * 100 )
 
-						/*if(stockPriceClose >= stockPriceHigh ){ //涨停
+						if(stockPriceClose >= stockPriceHigh ){ //涨停
 
 							val userSet = redisStockPushClient.smembers(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_USER_SET   + stockCode )
 
@@ -82,7 +82,7 @@ object StockIncDownStopCalculate {
 								val pushMessage = StockIncDownStopCalculate.getUpStopMessage(stockName, stockPercent, stockPriceClose, stockPercent)
 								val deviceType = ObjectUtils.toInteger(redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_DEVICETYPE + userId)).byteValue
 
-								PushUtils.sendElfPushMessage(stockCodeUsual, stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), pushMessage, deviceType)
+								//PushUtils.sendElfPushMessage(stockCodeUsual, stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), pushMessage, deviceType)
 
 								redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_USER_SET + stockCode, userId)
 
@@ -90,7 +90,7 @@ object StockIncDownStopCalculate {
 								wodeInfo.put("stockCode", stockCodeUsual)
 								wodeInfo.put("stockName", stockName)
 								wodeInfo.put("content", content)
-								WodeInfoUtils.message(userId, "涨跌停推送", content, wodeInfo)
+								//WodeInfoUtils.message(userId, "涨跌停推送", content, wodeInfo)
 
 
 								val sqlPush = "insert into push_log(stock_code,user_id,inc_drop_stop,percent_now,sys_create_time) "+ "values('"  + stockCode +"'" + "," + userId + "," + 1  + ","+ stockPercent + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
@@ -106,7 +106,7 @@ object StockIncDownStopCalculate {
 								val content = getDownStopMessage(stockName, stockCodeUsual, stockPriceClose, stockPercent)
 								val pushMessage = StockIncDownStopCalculate.getUpStopMessage(stockName, stockPercent, stockPriceClose, stockPercent)
 								val deviceType = ObjectUtils.toInteger(redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_DEVICETYPE + userId)).byteValue
-								PushUtils.sendElfPushMessage(stockCodeUsual, stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), pushMessage, deviceType)
+								//PushUtils.sendElfPushMessage(stockCodeUsual, stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), pushMessage, deviceType)
 
 								redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_USER_SET + stockCode, userId)
 
@@ -114,7 +114,7 @@ object StockIncDownStopCalculate {
 								wodeInfo.put("stockCode", stockCodeUsual)
 								wodeInfo.put("stockName", stockName)
 								wodeInfo.put("content", content)
-								WodeInfoUtils.message(userId, "涨跌停推送", content, wodeInfo)
+								//WodeInfoUtils.message(userId, "涨跌停推送", content, wodeInfo)
 
 
 								val sqlPush = "insert into push_log(stock_code,user_id,inc_drop_stop,percent_now,sys_create_time) "+ "values('"  + stockCode +"'" + "," + userId + "," + 0  + ","+ stockPercent + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
@@ -126,7 +126,7 @@ object StockIncDownStopCalculate {
 						if (CollectionUtils.isEmpty( redisStockPushClient.smembers(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_USER_SET + stockCode) )) {
 							redisStockPushClient.del(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_USER_SET + stockCode)
 							redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_STOCK_SET, stockCode)
-						}*/
+						}
 
 
 

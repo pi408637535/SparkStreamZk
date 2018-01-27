@@ -26,7 +26,7 @@ object StockPercentCalculate {
 	def main(args: Array[String]): Unit = {
 
 
-		val appName = "StockIncDownStopCalculate"
+		val appName = "StockPercentCalculate"
 		val bootStrapServer:String = "192.168.1.226:9092,192.168.1.161:9092,192.168.1.227:9092"
 		val zkServerIp:String = "192.168.1.213:2181,192.168.1.226:2181,192.168.1.161:2181"
 		val zkAddress:String = "/sparkStreaming/percentCalculate"
@@ -60,7 +60,7 @@ object StockPercentCalculate {
 
 						val data = JsonUtils.TO_JSONArray(msg._2)
 
-					/*	for(ele <- data){
+						for(ele <- data){
 							val jsonObject =JsonUtils.TO_JSONObject(( ele.toString))
 
 							val stockPercent = jsonObject.get("stockPercent").toString().toDouble
@@ -95,7 +95,7 @@ object StockPercentCalculate {
 									val message = f"下跌$stockPercent 到达你设置的$userPercent%.2f "
 
 									try{
-										PushUtils.sendElfPushMessage(stockCodeUsual, stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), message, deviceType)
+									//	PushUtils.sendElfPushMessage(stockCodeUsual, stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), message, deviceType)
 									}catch {
 										case e:Exception=> println("-------------------------"+ userId)
 									}
@@ -104,7 +104,7 @@ object StockPercentCalculate {
 									jsonData.put("stockCode", stockCodeUsual)
 									jsonData.put("stockName", stockName)
 									jsonData.put("content", content)
-									WodeInfoUtils.message(userId, "跌幅推送", content, jsonData)
+								//	WodeInfoUtils.message(userId, "跌幅推送", content, jsonData)
 
 
 									val sqlPush = "insert into push_log(stock_code,user_id,drop_percent,percent_now,sys_create_time) "+ "values('"  + stockCode +"'" + "," + userId + "," + userPercent  + ","+ stockPercent + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
@@ -132,13 +132,13 @@ object StockPercentCalculate {
 									val message = f"上涨$stockPercent 到达你设置的$userPercent%.2f "
 
 
-									PushUtils.sendElfPushMessage(stockCodeUsual, stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), message, deviceType)
+								//	PushUtils.sendElfPushMessage(stockCodeUsual, stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), message, deviceType)
 
 									val jsonData = new JSONObject()
 									jsonData.put("stockCode", stockCodeUsual)
 									jsonData.put("stockName", stockName)
 									jsonData.put("content", content)
-									WodeInfoUtils.message(userId, "涨幅推送", content, jsonData)
+								//	WodeInfoUtils.message(userId, "涨幅推送", content, jsonData)
 
 									val sqlPush = "insert into push_log(stock_code,user_id,inc_percent,percent_now,sys_create_time) "+ "values('"  + stockCode +"'" + "," + userId + "," + userPercent  + ","+  stockPercent + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
 									val stmtPush = connPush.createStatement()
@@ -150,7 +150,7 @@ object StockPercentCalculate {
 
 								}
 							}
-						}*/
+						}
 
 
 

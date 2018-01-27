@@ -38,8 +38,8 @@ object SparkDirectStreamingUtils {
     if (isLocal)  sparkConf.setMaster("local[1]") //local模式
     sparkConf.set("spark.streaming.stopGracefullyOnShutdown","true")//优雅的关闭
     sparkConf.set("spark.streaming.backpressure.enabled","true")//激活削峰功能
-    sparkConf.set("spark.streaming.backpressure.initialRate","50000")//第一次读取的最大数据值
-    sparkConf.set("spark.streaming.kafka.maxRatePerPartition","5000")//每个进程每秒最多从kafka读取的数据条数
+    sparkConf.set("spark.streaming.backpressure.initialRate","5000")//第一次读取的最大数据值
+    sparkConf.set("spark.streaming.kafka.maxRatePerPartition","2000")//每个进程每秒最多从kafka读取的数据条数
 
 
 

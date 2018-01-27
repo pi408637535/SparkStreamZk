@@ -447,10 +447,10 @@
 
                 <redis.max.idle>3000</redis.max.idle>
                 <redis.max.total>6000</redis.max.total>
-                <redis.timeBetweenEvictionRunsMillis>3000</redis.timeBetweenEvictionRunsMillis>
-                <redis.minEvictableIdleTimeMillis>3000</redis.minEvictableIdleTimeMillis>
+                <redis.timeBetweenEvictionRunsMillis>4000</redis.timeBetweenEvictionRunsMillis>
+                <redis.minEvictableIdleTimeMillis>4000</redis.minEvictableIdleTimeMillis>
                 <redis.testOnBorrow>false</redis.testOnBorrow>
-                <redis.timeout>1000</redis.timeout>
+                <redis.timeout>4000</redis.timeout>
 
                 <!--stock info-->
                 <stock.info.host>192.168.1.126</stock.info.host>
