@@ -59,9 +59,9 @@ object StockPriceCalculate {
 					partitions.foreach(msg=>{
 					//	log.warn("读取的数据："+msg)
 
-						val sqlPush = "insert into push_data_receive_log(content,sys_create_date) "+ "values('"  +  msg +"'"  + TimeUtils.getCurrent_time() +"'" + ")"
+						val sqlData = "insert into push_data_receive_log(content,sys_create_date) "+ "values('"  + msg +"'" + "," +  "'"+  TimeUtils.getCurrent_time() +"'" + ")"
 						val stmtPush = connPush.createStatement()
-						stmtPush.executeUpdate(sqlPush)
+						stmtPush.executeUpdate(sqlData)
 
 						val data = JsonUtils.TO_JSONArray(msg._2)
 
