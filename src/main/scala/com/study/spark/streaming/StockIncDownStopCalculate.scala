@@ -6,7 +6,7 @@ import com.alibaba.fastjson.{JSONArray, JSONObject}
 import com.stockemotion.common.utils.{DateUtils, JsonUtils, ObjectUtils}
 import com.study.spark.broadcast.StockInfoSink
 import com.study.spark.config.{PushRedisConstants, StockRedisConstants}
-import com.study.spark.pool.{RedisClient, RedisStockInfoClient, RedisStockPushClient}
+import com.study.spark.pool.{ RedisStockInfoClient, RedisStockPushClient}
 import kafka.serializer.StringDecoder
 import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.streaming.{Seconds, StreamingContext}
@@ -26,7 +26,7 @@ object StockIncDownStopCalculate {
 	def main(args: Array[String]): Unit = {
 		// Create context with 2 second batch interval
 		val sparkConf = new SparkConf().setAppName("StockIncDownStopCalculate").setMaster("spark://spark1:7077")// .setMaster("local[2]")
-		val ssc = new StreamingContext(sparkConf, Seconds(1))
+		val ssc = new StreamingContext(sparkConf, Seconds(3))
 
 	//	val paras = Array("192.168.152.137:9092,192.168.152.160:9092,192.168.152.163:9092", "incDownStop")
 	    val paras = Array("192.168.1.226:9092,192.168.1.161:9092,192.168.1.227:9092", "incDownStopNew")
@@ -61,12 +61,17 @@ object StockIncDownStopCalculate {
 
 		event.foreachRDD(jsonArray =>{
 
+
 			jsonArray.foreachPartition(iterator=>{
 				val connPush = MDBManager.getMDBManager.getConnection
 			//	val test = redisPoolBroadcastVal.value.jedisPool
 				val redisStockPushClient = RedisStockPushClient.pool.getResource()
 
 				iterator.foreach(iteratorElement=>{
+
+					val sqlData = "insert into push_data_receive_log(content,sys_create_date) "+ "values('"  + iteratorElement.toString +"'" + "," +  "'"+  TimeUtils.getCurrent_time() +"'" + ")"
+					val stmtPush = connPush.createStatement()
+					stmtPush.executeUpdate(sqlData)
 
 					//获取redis push pool
 					//解析股票数据
@@ -91,7 +96,7 @@ object StockIncDownStopCalculate {
 							val pushMessage = StockIncDownStopCalculate.getUpStopMessage(stockName, stockPercent, stockPriceClose, stockPercent)
 							val deviceType = ObjectUtils.toInteger(redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_DEVICETYPE + userId)).byteValue
 
-							PushUtils.sendElfPushMessage(stockCodeUsual, stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), pushMessage, deviceType)
+						//	PushUtils.sendElfPushMessage(stockCodeUsual, stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), pushMessage, deviceType)
 
 							redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_USER_SET + stockCode, userId)
 
@@ -99,7 +104,7 @@ object StockIncDownStopCalculate {
 							wodeInfo.put("stockCode", stockCodeUsual)
 							wodeInfo.put("stockName", stockName)
 							wodeInfo.put("content", content)
-							WodeInfoUtils.message(userId, "涨跌停推送", content, wodeInfo)
+						//	WodeInfoUtils.message(userId, "涨跌停推送", content, wodeInfo)
 
 
 							val sqlPush = "insert into push_log(stock_code,user_id,inc_drop_stop,percent_now,sys_create_time) "+ "values('"  + stockCode +"'" + "," + userId + "," + 1  + ","+ stockPercent + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
@@ -115,7 +120,7 @@ object StockIncDownStopCalculate {
 							val content = getDownStopMessage(stockName, stockCodeUsual, stockPriceClose, stockPercent)
 							val pushMessage = StockIncDownStopCalculate.getUpStopMessage(stockName, stockPercent, stockPriceClose, stockPercent)
 							val deviceType = ObjectUtils.toInteger(redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_DEVICETYPE + userId)).byteValue
-							PushUtils.sendElfPushMessage(stockCodeUsual, stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), pushMessage, deviceType)
+						//	PushUtils.sendElfPushMessage(stockCodeUsual, stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), pushMessage, deviceType)
 
 							redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_USER_SET + stockCode, userId)
 
@@ -123,7 +128,7 @@ object StockIncDownStopCalculate {
 							wodeInfo.put("stockCode", stockCodeUsual)
 							wodeInfo.put("stockName", stockName)
 							wodeInfo.put("content", content)
-							WodeInfoUtils.message(userId, "涨跌停推送", content, wodeInfo)
+						//	WodeInfoUtils.message(userId, "涨跌停推送", content, wodeInfo)
 
 
 							val sqlPush = "insert into push_log(stock_code,user_id,inc_drop_stop,percent_now,sys_create_time) "+ "values('"  + stockCode +"'" + "," + userId + "," + 0  + ","+ stockPercent + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
