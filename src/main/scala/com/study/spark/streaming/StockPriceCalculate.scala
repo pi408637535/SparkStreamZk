@@ -82,6 +82,9 @@ object StockPriceCalculate {
 				val connPush = MDBManager.getMDBManager.getConnection
 
 				iterator.foreach(iteratorElement=>{
+					iteratorElement.par.foreach()
+
+
 					for(i <- 0 to iteratorElement.size() - 1 ){
 						val jsonObject =JsonUtils.TO_JSONObject(( iteratorElement.get(i).toString))
 
