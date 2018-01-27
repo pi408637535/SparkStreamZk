@@ -124,6 +124,12 @@
             <version>3.2.1</version>
         </dependency>
         <dependency>
+            <groupId>com.typesafe.slick</groupId>
+            <artifactId>slick-hikaricp_2.11</artifactId>
+            <version>3.2.1</version>
+        </dependency>
+
+        <dependency>
             <groupId>org.scalatest</groupId>
             <artifactId>scalatest_2.11</artifactId>
             <version>3.0.4</version>
