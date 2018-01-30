@@ -4,11 +4,10 @@ import java.util
 
 import com.alibaba.fastjson.{JSONArray, JSONObject}
 import com.stockemotion.common.utils.{DateUtils, JsonUtils, ObjectUtils}
-import com.study.spark.broadcast.StockInfoSink
 import com.study.spark.config.{PushRedisConstants, StockRedisConstants}
-import com.study.spark.pool.{ RedisStockInfoClient, RedisStockPushClient}
+import com.study.spark.pool.{RedisStockInfoClient, RedisStockPushClient}
 import kafka.serializer.StringDecoder
-import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.SparkConf
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.apache.spark.streaming.kafka.KafkaUtils
 
@@ -17,7 +16,6 @@ import com.study.spark.config.PushRedisConstants
 import com.study.spark.streaming.mysql.{MDBManager, SparkPushConnectionPool}
 import com.study.spark.utils.{PushUtils, StringUtils, TimeUtils, WodeInfoUtils}
 import org.apache.commons.collections.CollectionUtils
-import org.apache.spark.broadcast.Broadcast
 /**
   * Created by piguanghua on 2017/9/13.
   */
@@ -36,7 +34,7 @@ object StockIncDownStopCalculate {
 		val messages = KafkaUtils.createDirectStream[String, String, StringDecoder, StringDecoder](
 			ssc, kafkaParams, topicsSet)
 
-		/*val stockInfoMap = scala.collection.mutable.Map[String, String]()
+		val stockInfoMap = scala.collection.mutable.Map[String, String]()
 		//缓存stock数据
 		//需要checkpoint
 		val redisStockInfo = RedisStockInfoClient.getResource()
@@ -49,9 +47,6 @@ object StockIncDownStopCalculate {
 			stockInfoMap += (stockCode->stockName)
 		}
 		RedisStockInfoClient.releaseResource(redisStockInfo)
-		val stockInfoBroadcast:Broadcast[scala.collection.mutable.Map[String, String]] = sc.broadcast(stockInfoMap)*/
-		val broadcastVal = StockInfoSink.broadcastStockInfo(ssc.sparkContext)
-	//	val redisPoolBroadcastVal = ssc.sparkContext.broadcast(new RedisClient)
 
 		//收集数据
 		val event=messages.flatMap(line => {
@@ -61,17 +56,14 @@ object StockIncDownStopCalculate {
 
 		event.foreachRDD(jsonArray =>{
 
-
 			jsonArray.foreachPartition(iterator=>{
 				val connPush = MDBManager.getMDBManager.getConnection
-			//	val test = redisPoolBroadcastVal.value.jedisPool
+
 				val redisStockPushClient = RedisStockPushClient.pool.getResource()
 
 				iterator.foreach(iteratorElement=>{
 
-					val sqlData = "insert into push_data_receive_log(content,sys_create_date) "+ "values('"  + iteratorElement.toString +"'" + "," +  "'"+  TimeUtils.getCurrent_time() +"'" + ")"
-					val stmtPush = connPush.createStatement()
-					stmtPush.executeUpdate(sqlData)
+
 
 					//获取redis push pool
 					//解析股票数据
@@ -81,7 +73,7 @@ object StockIncDownStopCalculate {
 					val stockPriceYesterday = iteratorElement.get("stockPriceYesterday").toString.toDouble
 					val stockCode = iteratorElement.get("stockCode").toString
 
-					val stockName = broadcastVal.value.get(iteratorElement.get("stockCode").toString).get
+					val stockName = stockInfoMap.get(iteratorElement.get("stockCode").toString).get
 					val stockCodeUsual = stockCode.substring(0, stockCode.lastIndexOf("."))
 					val stockPercent = StringUtils.formatDouble( (stockPriceClose - stockPriceYesterday) / stockPriceYesterday * 100 )
 
@@ -96,7 +88,7 @@ object StockIncDownStopCalculate {
 							val pushMessage = StockIncDownStopCalculate.getUpStopMessage(stockName, stockPercent, stockPriceClose, stockPercent)
 							val deviceType = ObjectUtils.toInteger(redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_DEVICETYPE + userId)).byteValue
 
-						//	PushUtils.sendElfPushMessage(stockCodeUsual, stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), pushMessage, deviceType)
+							PushUtils.sendElfPushMessage(stockCodeUsual, stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), pushMessage, deviceType)
 
 							redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_USER_SET + stockCode, userId)
 
@@ -104,7 +96,7 @@ object StockIncDownStopCalculate {
 							wodeInfo.put("stockCode", stockCodeUsual)
 							wodeInfo.put("stockName", stockName)
 							wodeInfo.put("content", content)
-						//	WodeInfoUtils.message(userId, "涨跌停推送", content, wodeInfo)
+							WodeInfoUtils.message(userId, "涨跌停推送", content, wodeInfo)
 
 
 							val sqlPush = "insert into push_log(stock_code,user_id,inc_drop_stop,percent_now,sys_create_time) "+ "values('"  + stockCode +"'" + "," + userId + "," + 1  + ","+ stockPercent + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
@@ -120,7 +112,7 @@ object StockIncDownStopCalculate {
 							val content = getDownStopMessage(stockName, stockCodeUsual, stockPriceClose, stockPercent)
 							val pushMessage = StockIncDownStopCalculate.getUpStopMessage(stockName, stockPercent, stockPriceClose, stockPercent)
 							val deviceType = ObjectUtils.toInteger(redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_DEVICETYPE + userId)).byteValue
-						//	PushUtils.sendElfPushMessage(stockCodeUsual, stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), pushMessage, deviceType)
+							PushUtils.sendElfPushMessage(stockCodeUsual, stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), pushMessage, deviceType)
 
 							redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_INC_DROP_STOP_USER_SET + stockCode, userId)
 
@@ -128,7 +120,7 @@ object StockIncDownStopCalculate {
 							wodeInfo.put("stockCode", stockCodeUsual)
 							wodeInfo.put("stockName", stockName)
 							wodeInfo.put("content", content)
-						//	WodeInfoUtils.message(userId, "涨跌停推送", content, wodeInfo)
+							WodeInfoUtils.message(userId, "涨跌停推送", content, wodeInfo)
 
 
 							val sqlPush = "insert into push_log(stock_code,user_id,inc_drop_stop,percent_now,sys_create_time) "+ "values('"  + stockCode +"'" + "," + userId + "," + 0  + ","+ stockPercent + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
