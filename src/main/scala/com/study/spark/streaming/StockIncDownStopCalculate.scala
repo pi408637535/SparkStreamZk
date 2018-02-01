@@ -110,7 +110,7 @@ object StockIncDownStopCalculate {
 
 						userSet.foreach(userId=>{
 							val content = getDownStopMessage(stockName, stockCodeUsual, stockPriceClose, stockPercent)
-							val pushMessage = StockIncDownStopCalculate.getUpStopMessage(stockName, stockPercent, stockPriceClose, stockPercent)
+							val pushMessage = StockIncDownStopCalculate.getDownStopMessage(stockName, stockPercent, stockPriceClose, stockPercent)
 							val deviceType = ObjectUtils.toInteger(redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_DEVICETYPE + userId)).byteValue
 							PushUtils.sendElfPushMessage(stockCodeUsual, stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), pushMessage, deviceType)
 
