@@ -17,4 +17,8 @@ object TimeUtils {
 		val str = a+""
 		str.substring(0,10).toLong
 	}
+
+	def main(args: Array[String]): Unit = {
+		println(getCurrent_time())
+	}
 }

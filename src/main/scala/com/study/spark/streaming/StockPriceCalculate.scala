@@ -22,10 +22,10 @@ object StockPriceCalculate {
 	def main(args: Array[String]): Unit = {
 		// Create context with 2 second batch interval
 		val sparkConf = new SparkConf().setAppName("StockPriceCalculate")
-		  .setMaster("spark://spark1:7077")
+		 // 	.setMaster("spark://spark1:7077")
 
-		//.setMaster("local[2]")
-		val ssc = new StreamingContext(sparkConf, Seconds(6))
+		  .setMaster("local[*]")
+		val ssc = new StreamingContext(sparkConf, Seconds(3))
 		val paras = Array("192.168.1.226:9092,192.168.1.161:9092,192.168.1.227:9092", "stockPrice")
 
 
@@ -45,16 +45,16 @@ object StockPriceCalculate {
 		}
 
 		//大盘
-	//	val stockPanCode = redisStockInfo.hgetAll(StockRedisConstants.STOCK_ALL_PAN_CODE)
+		//	val stockPanCode = redisStockInfo.hgetAll(StockRedisConstants.STOCK_ALL_PAN_CODE)
 		import com.alibaba.fastjson.JSONObject
 		import com.stockemotion.common.utils.JsonUtils
 
-	/*	for (entry <- stockPanCode.entrySet()) {
-			val jsonObject = JsonUtils.TO_JSONObject(entry.getValue())
-			val stockCode = ObjectUtils.toString(jsonObject.get("stock_code"))
-			val stockName = ObjectUtils.toString(jsonObject.get("stock_name"))
-			stockInfoMap.put(stockCode, stockName)
-		}*/
+		/*	for (entry <- stockPanCode.entrySet()) {
+        val jsonObject = JsonUtils.TO_JSONObject(entry.getValue())
+        val stockCode = ObjectUtils.toString(jsonObject.get("stock_code"))
+        val stockName = ObjectUtils.toString(jsonObject.get("stock_name"))
+        stockInfoMap.put(stockCode, stockName)
+      }*/
 
 		RedisStockInfoClient.releaseResource(redisStockInfo)
 
@@ -66,214 +66,91 @@ object StockPriceCalculate {
 
 		//收集数据
 		val event=messages.flatMap(line => {
-			val look = line._1
-			val data = JsonUtils.TO_JSONArray(line._2)
-
+			val data = JsonUtils.TO_JSONObject(line._2)
 			Some(data)
 		})
 
 		event.foreachRDD(jsonArray =>{
 
-			jsonArray.foreachPartition(iterator=>{
+			jsonArray.foreachPartition(partitions=>{
 
-				val redisStockPushClient = RedisStockPushClient.pool.getResource()
-				val connPush = MDBManager.getMDBManager.getConnection
-
-				iterator.foreach(iteratorElement=>{
-
-					iteratorElement.par.foreach(ele=>{
-						val jsonObject =JsonUtils.TO_JSONObject(( ele.toString))
-
-						val sqlData = "insert into push_data_receive_log(content,sys_create_date) "+ "values('"  + iteratorElement.toString +"'" + "," +  "'"+  TimeUtils.getCurrent_time() +"'" + ")"
+				if (!partitions.isEmpty) {
+					val redisStockPushClient = RedisStockPushClient.pool.getResource()
+					val connPush = MDBManager.getMDBManager.getConnection
+					partitions.foreach(msg => {
+					/*	val sqlData = "insert into push_data_receive_log(content,sys_create_date) "+ "values('"  + msg +"'" + "," +  "'"+  TimeUtils.getCurrent_time() +"'" + ")"
 						val stmtPush = connPush.createStatement()
-						stmtPush.executeUpdate(sqlData)
+						stmtPush.executeUpdate(sqlData)*/
 
-						val stockPrice = jsonObject.get("stockPriceClose").toString().toDouble
-						val userPrice = jsonObject.get("userPriceSetting") .toString().toDouble
-						val state = jsonObject.get("state").toString.toByte
 
-						val stockCode = jsonObject.get("stockCode").toString
-						val userId = jsonObject.get("userId").toString
+						val stockPrice = msg.get("stockPriceClose").toString().toDouble
+						val userPrice = msg.get("userPriceSetting") .toString().toDouble
+						val state = msg.get("state").toString.toByte
 
-						val stockName = stockInfoMap.get(jsonObject.get("stockCode").toString).get
+						val stockCode = msg.get("stockCode").toString
+						val userId = msg.get("userId").toString
+
+						val stockName = stockInfoMap.get(msg.get("stockCode").toString).get
 						val stockCodeUsual = stockCode.substring(0, stockCode.lastIndexOf("."))
 
-						if(state == 0){  //down
-							if(stockPrice <= userPrice){
+						if(state == 0 && stockPrice <= userPrice ){
+							val redisStockPushClient = RedisStockPushClient.pool.getResource
+							redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_PRICE_DOWN_USER_SET + stockCode, userId)
+							redisStockPushClient.del(PushRedisConstants.STOCK_PUSH_USER_PRICE_DOWN + userId + ":" + stockCode)
 
-								val redisStockPushClient = RedisStockPushClient.pool.getResource
-								redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_PRICE_DOWN_USER_SET + stockCode, userId)
-								redisStockPushClient.del(PushRedisConstants.STOCK_PUSH_USER_PRICE_DOWN + userId + ":" + stockCode)
-
-								if (CollectionUtils.isEmpty(redisStockPushClient.smembers(PushRedisConstants.STOCK_PUSH_ELF_PRICE_DOWN_USER_SET + stockCode))) {
-									redisStockPushClient.del(PushRedisConstants.STOCK_PUSH_ELF_PRICE_DOWN_USER_SET + stockCode)
-									redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_PRICE_DOWN_STOCK_SET, stockCode)
-								}
+							val content = StockPriceCalculate.getPriceDownContent(stockName, stockCodeUsual, stockPrice, userPrice)
+							val deviceType = ObjectUtils.toInteger(redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_DEVICETYPE + userId)).byteValue
 
 
-								val content = StockPriceCalculate.getPriceDownContent(stockName, stockCodeUsual, stockPrice, userPrice)
-								val deviceType = ObjectUtils.toInteger(redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_DEVICETYPE + userId)).byteValue
+							val message = f"下跌$stockPrice 到达你设置的$userPrice%.2f "
 
+								PushUtils.sendElfPushMessage(stockCodeUsual , stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), message, deviceType)
 
-								val message = f"下跌$stockPrice 到达你设置的$userPrice%.2f "
+							val jsonData = new JSONObject()
+							jsonData.put("stockCode", stockCodeUsual)
+							jsonData.put("stockName", stockName)
+							jsonData.put("content", content)
+								WodeInfoUtils.message(userId, "下跌推送", content, jsonData)
 
-
-										PushUtils.sendElfPushMessage(stockCodeUsual , stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), message, deviceType)
-
-								val jsonData = new JSONObject()
-								jsonData.put("stockCode", stockCodeUsual)
-								jsonData.put("stockName", stockName)
-								jsonData.put("content", content)
-										WodeInfoUtils.message(userId, "下跌推送", content, jsonData)
-
-
-
-								val sqlPush = "insert into push_log(stock_code,user_id,drop_price,price_now,sys_create_time) "+ "values('"  + stockCode +"'" + "," + userId + "," + userPrice  + ","+ stockPrice + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
-								try{
-									val stmtPush = connPush.createStatement()
-									stmtPush.executeUpdate(sqlPush)
-								}catch {
-									case ex:Exception=>{
-										val stmtPush = connPush.createStatement()
-										val sqlPush = "insert into push_error_log(stock_code,user_id,drop_price,sys_create_time) "+ "values(    '"  +   stockCode  +"'" + "," + userId  + "," +  userPrice  + "," + "'" + TimeUtils.getCurrent_time() +"'" + ")"
-										stmtPush.executeUpdate(sqlPush)
-									}
-
-								}
-							}
-						}else{
-							if(stockPrice >= userPrice){
-
-								val redisStockPushClient = RedisStockPushClient.pool.getResource
-								redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_PRICE_UP_USER_SET + stockCode, userId)
-								redisStockPushClient.del(PushRedisConstants.STOCK_PUSH_USER_PRICE_UP + userId + ":" + stockCode)
-
-								if (CollectionUtils.isEmpty(redisStockPushClient.smembers(PushRedisConstants.STOCK_PUSH_ELF_PRICE_UP_USER_SET + stockCode))) {
-									redisStockPushClient.del(PushRedisConstants.STOCK_PUSH_ELF_PRICE_UP_USER_SET + stockCode)
-									redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_PRICE_UP_STOCK_SET, stockCode)
-								}
-
-
-								val content = StockPriceCalculate.getPriceUpContent(stockName, stockCodeUsual, stockPrice, userPrice)
-								val deviceType = ObjectUtils.toInteger(redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_DEVICETYPE + userId)).byteValue
-
-
-								val message = f"上涨$stockPrice 到达你设置的$userPrice%.2f "
-
-
-										PushUtils.sendElfPushMessage(stockCodeUsual , stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), message, deviceType)
-
-								val jsonData = new JSONObject()
-								jsonData.put("stockCode", stockCodeUsual)
-								jsonData.put("stockName", stockName)
-								jsonData.put("content", content)
-										WodeInfoUtils.message(userId, "上涨推送", content, jsonData)
-
-								val sqlPush = "insert into push_log(stock_code,user_id,inc_price,price_now,sys_create_time) "+ "values('"  + stockCode +"'" + "," + userId + "," + userPrice  + ","+ stockPrice + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
+							val sqlPush = "insert into push_log(stock_code,user_id,drop_price,price_now,sys_create_time) "+ "values('"  + stockCode +"'" + "," + userId + "," + userPrice  + ","+ stockPrice + ","+    "'" + msg.get("timestamp") +"'" + ")"
+							try{
 								val stmtPush = connPush.createStatement()
 								stmtPush.executeUpdate(sqlPush)
+							}catch {
+								case ex:Exception=>{
+									val stmtPush = connPush.createStatement()
+									val sqlPush = "insert into push_error_log(stock_code,user_id,drop_price,sys_create_time) "+ "values(    '"  +   stockCode  +"'" + "," + userId  + "," +  userPrice  + "," + "'" + msg.get("timestamp") +"'" + ")"
+									stmtPush.executeUpdate(sqlPush)
+								}
 
 							}
+						}else if(stockPrice >= userPrice && state == 1){
+							val redisStockPushClient = RedisStockPushClient.pool.getResource
+							redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_PRICE_UP_USER_SET + stockCode, userId)
+							redisStockPushClient.del(PushRedisConstants.STOCK_PUSH_USER_PRICE_UP + userId + ":" + stockCode)
+
+							val content = StockPriceCalculate.getPriceUpContent(stockName, stockCodeUsual, stockPrice, userPrice)
+							val deviceType = ObjectUtils.toInteger(redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_DEVICETYPE + userId)).byteValue
+
+							val message = f"上涨$stockPrice 到达你设置的$userPrice%.2f "
+
+								PushUtils.sendElfPushMessage(stockCodeUsual , stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), message, deviceType)
+
+							val jsonData = new JSONObject()
+							jsonData.put("stockCode", stockCodeUsual)
+							jsonData.put("stockName", stockName)
+							jsonData.put("content", content)
+								WodeInfoUtils.message(userId, "上涨推送", content, jsonData)
+
+							val sqlPush = "insert into push_log(stock_code,user_id,inc_price,price_now,sys_create_time) "+ "values('"  + stockCode +"'" + "," + userId + "," + userPrice  + ","+ stockPrice + ","+    "'" + msg.get("timestamp") +"'" + ")"
+							val stmtPush = connPush.createStatement()
+							stmtPush.executeUpdate(sqlPush)
 						}
 					})
 
-					/*for(i <- 0 to iteratorElement.size() - 1 ){
-						val jsonObject =JsonUtils.TO_JSONObject(( iteratorElement.get(i).toString))
-
-						val sqlData = "insert into push_data_receive_log(content,sys_create_date) "+ "values('"  + iteratorElement.toString +"'" + "," +  "'"+  TimeUtils.getCurrent_time() +"'" + ")"
-						val stmtPush = connPush.createStatement()
-						stmtPush.executeUpdate(sqlData)
-
-						val stockPrice = jsonObject.get("stockPriceClose").toString().toDouble
-						val userPrice = jsonObject.get("userPriceSetting") .toString().toDouble
-						val state = jsonObject.get("state").toString.toByte
-
-						val stockCode = jsonObject.get("stockCode").toString
-						val userId = jsonObject.get("userId").toString
-
-						val stockName = stockInfoMap.get(jsonObject.get("stockCode").toString).get
-						val stockCodeUsual = stockCode.substring(0, stockCode.lastIndexOf("."))
-
-						if(state == 0){  //down
-							if(stockPrice <= userPrice){
-
-								val redisStockPushClient = RedisStockPushClient.pool.getResource
-								redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_PRICE_DOWN_USER_SET + stockCode, userId)
-								redisStockPushClient.del(PushRedisConstants.STOCK_PUSH_USER_PRICE_DOWN + userId + ":" + stockCode)
-
-								if (CollectionUtils.isEmpty(redisStockPushClient.smembers(PushRedisConstants.STOCK_PUSH_ELF_PRICE_DOWN_USER_SET + stockCode))) {
-									redisStockPushClient.del(PushRedisConstants.STOCK_PUSH_ELF_PRICE_DOWN_USER_SET + stockCode)
-									redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_PRICE_DOWN_STOCK_SET, stockCode)
-								}
-
-
-								val content = StockPriceCalculate.getPriceDownContent(stockName, stockCodeUsual, stockPrice, userPrice)
-								val deviceType = ObjectUtils.toInteger(redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_DEVICETYPE + userId)).byteValue
-
-
-								val message = f"下跌$stockPrice 到达你设置的$userPrice%.2f "
-
-
-						//		PushUtils.sendElfPushMessage(stockCodeUsual , stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), message, deviceType)
-
-								val jsonData = new JSONObject()
-								jsonData.put("stockCode", stockCodeUsual)
-								jsonData.put("stockName", stockName)
-								jsonData.put("content", content)
-						//		WodeInfoUtils.message(userId, "下跌推送", content, jsonData)
-
-
-
-								val sqlPush = "insert into push_log(stock_code,user_id,drop_price,price_now,sys_create_time) "+ "values('"  + stockCode +"'" + "," + userId + "," + userPrice  + ","+ stockPrice + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
-								try{
-								val stmtPush = connPush.createStatement()
-								stmtPush.executeUpdate(sqlPush)
-								}catch {
-									case ex:Exception=>{
-										val stmtPush = connPush.createStatement()
-										val sqlPush = "insert into push_error_log(stock_code,user_id,drop_price,sys_create_time) "+ "values(    '"  +   stockCode  +"'" + "," + userId  + "," +  userPrice  + "," + "'" + TimeUtils.getCurrent_time() +"'" + ")"
-										stmtPush.executeUpdate(sqlPush)
-									}
-
-								}
-							}
-						}else{
-							if(stockPrice >= userPrice){
-
-								val redisStockPushClient = RedisStockPushClient.pool.getResource
-								redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_PRICE_UP_USER_SET + stockCode, userId)
-								redisStockPushClient.del(PushRedisConstants.STOCK_PUSH_USER_PRICE_UP + userId + ":" + stockCode)
-
-								if (CollectionUtils.isEmpty(redisStockPushClient.smembers(PushRedisConstants.STOCK_PUSH_ELF_PRICE_UP_USER_SET + stockCode))) {
-									redisStockPushClient.del(PushRedisConstants.STOCK_PUSH_ELF_PRICE_UP_USER_SET + stockCode)
-									redisStockPushClient.srem(PushRedisConstants.STOCK_PUSH_ELF_PRICE_UP_STOCK_SET, stockCode)
-								}
-
-
-								val content = StockPriceCalculate.getPriceUpContent(stockName, stockCodeUsual, stockPrice, userPrice)
-								val deviceType = ObjectUtils.toInteger(redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_DEVICETYPE + userId)).byteValue
-
-
-								val message = f"上涨$stockPrice 到达你设置的$userPrice%.2f "
-
-
-						//		PushUtils.sendElfPushMessage(stockCodeUsual , stockName, content, redisStockPushClient.get(PushRedisConstants.STOCK_PUSH_USER_CLIENTID + userId), message, deviceType)
-
-								val jsonData = new JSONObject()
-								jsonData.put("stockCode", stockCodeUsual)
-								jsonData.put("stockName", stockName)
-								jsonData.put("content", content)
-						//		WodeInfoUtils.message(userId, "上涨推送", content, jsonData)
-
-								val sqlPush = "insert into push_log(stock_code,user_id,inc_price,price_now,sys_create_time) "+ "values('"  + stockCode +"'" + "," + userId + "," + userPrice  + ","+ stockPrice + ","+    "'" + TimeUtils.getCurrent_time() +"'" + ")"
-								val stmtPush = connPush.createStatement()
-								stmtPush.executeUpdate(sqlPush)
-
-							}
-						}}*/
-				})
-				RedisStockPushClient.pool.returnResource(redisStockPushClient)
-				connPush.close()
+					connPush.close()
+					redisStockPushClient.close()
+				}
 			})
 		})
 
