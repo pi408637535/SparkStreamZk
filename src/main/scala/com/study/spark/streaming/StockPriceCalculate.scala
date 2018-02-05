@@ -22,9 +22,9 @@ object StockPriceCalculate {
 	def main(args: Array[String]): Unit = {
 		// Create context with 2 second batch interval
 		val sparkConf = new SparkConf().setAppName("StockPriceCalculate")
-		 // 	.setMaster("spark://spark1:7077")
+		  	.setMaster("spark://spark1:7077")
 
-		  .setMaster("local[*]")
+		 // .setMaster("local[*]")
 		val ssc = new StreamingContext(sparkConf, Seconds(3))
 		val paras = Array("192.168.1.226:9092,192.168.1.161:9092,192.168.1.227:9092", "stockPrice")
 

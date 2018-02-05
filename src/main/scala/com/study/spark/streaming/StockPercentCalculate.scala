@@ -25,7 +25,7 @@ object StockPercentCalculate {
 		// Create context with 2 second batch interval
 		val sparkConf = new SparkConf().setAppName("StockPercentCalculate")
 		//  .set("spark.scheduler.listenerbus.eventqueue.size", "100000")
-		  .setMaster("local[*]")
+		  .setMaster("spark://spark1:7077")
 
 		val ssc = new StreamingContext(sparkConf, Seconds(1))
 		//	val paras = Array("spark1:9092,spark2:9092,spark3:9092", "stockPercent")
